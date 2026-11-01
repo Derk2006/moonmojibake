@@ -20,7 +20,7 @@ First release.
   character has no representation, which repair uses to prune its search.
 - **CLI** with `detect`, `repair` and `convert`, plus `--text` so the tool still
   runs on backends without a filesystem.
-- **Generated tables** — 45 605 two-byte mappings built from CPython codecs by
+- **Generated tables** — 50 605 two-byte mappings built from CPython codecs by
   `scripts/gen_tables.py`, committed for reproducibility.
 - **Common-character set** — 9 157 characters derived from the GB2312 and Big5
   level-1 ranges, used as the frequency signal without shipping a corpus.

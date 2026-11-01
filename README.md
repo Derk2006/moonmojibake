@@ -28,7 +28,7 @@ you reach for when there is no label, or when the label is wrong.
 
 | Area | State |
 |---|---|
-| Code pages — GBK, Big5, Shift_JIS, EUC-KR | ✅ 45 605 two-byte mappings, generated from CPython codecs |
+| Code pages — GBK, Big5, Shift_JIS, EUC-KR | ✅ 50 605 two-byte mappings, generated from CPython codecs |
 | Code pages — UTF-8, UTF-16LE/BE, Latin-1, windows-1252 | ✅ |
 | Detection — ranking, confidence, BOM handling | ✅ 9 candidates per call |
 | Repair — chained mojibake, up to 4 layers | ✅ returns the re-encode chain |
