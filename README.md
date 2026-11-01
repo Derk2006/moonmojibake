@@ -7,7 +7,8 @@
 **Given bytes with no declared encoding, work out what they are. Given text that
 is already ruined, work out how it was ruined and undo it.**
 
-MoonMojibake does two things the MoonBit ecosystem did not have:
+MoonMojibake does two things the MoonBit ecosystem has not put in a library of
+its own:
 
 1. **Detection** — it answers *"what encoding is this file?"* without being told.
    It decodes the same bytes under every code page it knows, scores how much
@@ -21,6 +22,16 @@ MoonMojibake does two things the MoonBit ecosystem did not have:
 Existing packages such as `LL728/moon_encoding` and `f4ah6o/encoding_sjis` solve
 a different problem: they map a *known* label to a decoder. MoonMojibake is what
 you reach for when there is no label, or when the label is wrong.
+
+Detection does exist elsewhere in the ecosystem, but only in two shapes. Parsers
+sniff a BOM or a container-declared charset (`bobzhang/html_parser`,
+`bobzhang/mbtexcel`, `cp15695540483/moontag`) — there the answer is dictated by a
+specification, not inferred from the bytes. And `R00TK17/moonreader`, a
+twelve-format file reader, exports `detect_encoding` as a helper: one enum and
+no score, no Shift_JIS or EUC-KR, and its own docs note that GBK and Big5 cannot
+be told apart, so double-byte text defaults to GBK. MoonMojibake returns ranked
+candidates with confidence behind them, covers Japanese and Korean, and repairs
+text that was already decoded wrongly.
 
 ---
 
