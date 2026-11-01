@@ -1,0 +1,14 @@
+import {
+  "Derk2006/moonmojibake/src/mojibake" @mojibake,
+  "moonbitlang/core/env" @env,
+  "moonbitlang/core/encoding/utf8" @utf8,
+}
+
+pkgtype(kind: "executable")
+
+options(
+  targets: {
+    "io_js.mbt": [ "js" ],
+    "io_other.mbt": [ "native", "llvm", "wasm", "wasm-gc" ],
+  },
+)

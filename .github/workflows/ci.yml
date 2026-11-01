@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check-test-build:
+    name: check / test / build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: Show toolchain
+        run: moon version --all
+
+      - name: Type check
+        run: moon check
+
+      - name: Unit tests
+        run: moon test
+
+      - name: Build CLI (js)
+        run: moon build --target js
+
+      - name: Build library (wasm-gc)
+        run: moon build --target wasm-gc
+
+      - name: Regenerated tables are up to date
+        run: |
+          python3 scripts/gen_tables.py
+          git diff --exit-code -- src/mojibake/tables_gen.mbt
+
+      - name: Cross-check against CPython codecs
+        run: python3 scripts/e2e_check.py
+
+      - name: CLI smoke test
+        run: |
+          CLI=_build/js/debug/build/cmd/moonmojibake/moonmojibake.js
+          node $CLI detect samples/gbk.txt | tee /tmp/detect.txt
+          grep -q "guess: gbk" /tmp/detect.txt
+          node $CLI repair samples/moji_latin1.txt | tee /tmp/repair.txt
+          grep -q "latin1 -> utf-8" /tmp/repair.txt
