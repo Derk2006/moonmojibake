@@ -97,7 +97,7 @@ fn load_input(options : Options) -> (String, Bytes)? {
 
 ///|
 fn version_line() -> String {
-  "moonmojibake 0.1.0"
+  "moonmojibake 0.2.0"
 }
 
 ///|

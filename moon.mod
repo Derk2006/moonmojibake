@@ -1,5 +1,5 @@
 name = "Derk2006/moonmojibake"
-version = "0.1.0"
+version = "0.2.0"
 readme = "README.md"
 repository = "https://github.com/Derk2006/moonmojibake"
 license = "Apache-2.0"

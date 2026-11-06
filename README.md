@@ -40,11 +40,13 @@ text that was already decoded wrongly.
 | Area | State |
 |---|---|
 | Code pages — GBK, Big5, Shift_JIS, EUC-KR | ✅ 50 605 two-byte mappings, generated from CPython codecs |
-| Code pages — UTF-8, UTF-16LE/BE, Latin-1, windows-1252 | ✅ |
-| Detection — ranking, confidence, BOM handling | ✅ 9 candidates per call |
+| Code pages — UTF-8, UTF-16LE/BE, UTF-32LE/BE, Latin-1, windows-1252 | ✅ |
+| Detection — ranking, confidence, BOM handling | ✅ 11 candidates per call |
 | Repair — chained mojibake, up to 4 layers | ✅ returns the re-encode chain |
-| CLI — `detect` / `repair` / `convert` | ✅ js backend (Node), library works on every backend |
-| Unit tests | ✅ 31 passing (`moon test`) |
+| Repair — script guard | ✅ never swaps Chinese for Hangul or kana |
+| CLI — `detect` / `repair` / `convert` / `scan` | ✅ js backend (Node), library works on every backend |
+| CLI — `--json` on every subcommand | ✅ stable field names, for pipelines |
+| Unit tests | ✅ 48 passing (`moon test`) |
 | Cross-check against CPython | ✅ 192/192 (`scripts/e2e_check.py`) |
 | Dependencies | ✅ MoonBit core only, zero FFI |
 | License | ✅ Apache-2.0 |
@@ -57,7 +59,9 @@ text that was already decoded wrongly.
 
 ```sh
 moon build --target js
-node _build/js/debug/build/cmd/moonmojibake/moonmojibake.js detect samples/gbk.txt
+alias mm="node _build/js/debug/build/cmd/moonmojibake/moonmojibake.js"
+
+mm detect samples/gbk.txt
 ```
 
 ```
@@ -65,29 +69,79 @@ samples/gbk.txt (36 bytes)
 
   #  encoding        score  conf  errors  sample
   1  gbk                86    51       0  我们把这件事说清楚，然后开始写代码。
-  2  euc-kr             73     0       0  乖쳬겉侶숭慤綱헌뇝，횔빈역迦畇덜쯤。
-  3  shift_jis          68     0       5  ﾎﾒﾃﾇｰﾑﾕ箴�ﾊﾂﾋｵﾇ蟲�｣ｬﾈｻｺ�ｿｪ
+  2  euc-kr             69     0       0  乖쳬겉侶숭慤綱헌뇝，횔빈역迦畇덜쯤。
+  3  big5               54     0       2  扂蠅參涴璃岈佽ь奠ㄛ�遣騜羌標斐�鎢﹝
+  4  utf-16be           47     0       0  컒쏇냑헢볾쫂쮵쟥돾ꎬ좻뫳뾪쪼킴듺싫ꆣ
   ...
+  9  utf-8               3     0      19  ���ǰ������˵�����Ȼ��ʼд���
+ 11  utf-32be            0     0       9  ���������
 
 guess: gbk  (confidence 51%, score 86)
 ```
 
+Every candidate is shown, including the ones that lost badly, because the
+ranking is the evidence: eleven readings, one of which is text and ten of which
+are not.
+
 ```sh
-node .../moonmojibake.js repair samples/moji_latin1.txt
+mm repair samples/moji_latin1.txt
 ```
 
 ```
 samples/moji_latin1.txt
-score 48 -> 90
+score 40 -> 86
 chain: latin1 -> utf-8
 
 我们把这件事说清楚，然后开始写代码。
 ```
 
 ```sh
-node .../moonmojibake.js convert samples/utf8.txt --to gbk -o out.bin
-node .../moonmojibake.js detect --text "中文测试"
+mm convert samples/utf8.txt --to gbk -o out.bin
+mm detect --text "中文测试"
 ```
+
+Point it at a tree instead of a file — it walks the directory and flags the
+things that are not text at all:
+
+```sh
+mm scan samples -r
+```
+
+```
+scan samples (7 files)
+
+  encoding   files
+  big5           1
+  euc-kr         1
+  gbk            1
+  utf-8          3
+  shift_jis      1
+
+  samples/big5.txt                    big5
+  samples/euckr.txt                   euc-kr
+  samples/gbk.txt                     gbk
+  samples/moji_cp1252.txt             utf-8
+  samples/moji_latin1.txt             utf-8
+  samples/sjis.txt                    shift_jis
+  samples/utf8.txt                    utf-8
+```
+
+Files that are not text at all are reported as `binary` rather than being
+force-decoded into nonsense, and `-r` recurses into subdirectories.
+
+`detect`, `repair` and `scan` all take `--json`, so the same answers compose
+with `jq` and the rest of a pipeline:
+
+```sh
+mm detect samples/gbk.txt --json | jq -r '.guess, .confidence'
+mm repair samples/moji_latin1.txt --json | jq -r '.chain[0].wrong + " -> " + .chain[0].right'
+mm scan . -r --json | jq -r '.entries[] | select(.binary or .charset != "utf-8") | .path'
+```
+
+The last line is the one that earns its keep: point it at a repository and get
+back exactly the files whose encoding will bite you. The document shape is
+fixed (see [`docs/USAGE.md`](docs/USAGE.md#json-output)), so scripts can rely on
+it.
 
 ### As a library
 
@@ -154,9 +208,12 @@ that was wrongly applied, then decoding the recovered bytes with the right one.
 Repair runs that search over every plausible `(wrong, right)` pair, accepts a
 candidate only when it decodes with zero errors *and* improves the score by a
 margin, then repeats — up to four layers, which covers every real chain the
-authors have seen. Chains that cannot be undone are reported honestly: if the
-wrong code page had undefined bytes, the information was destroyed at that
-moment and no amount of search brings it back.
+authors have seen. A round is additionally refused if it would swap one CJK
+script for another: encoding accidents move bytes between code pages, they never
+translate Chinese into Korean. Without that veto, the greedy search really did
+turn 你好 into 콱봤 on a second pass. Chains that cannot be undone are reported
+honestly: if the wrong code page had undefined bytes, the information was
+destroyed at that moment and no amount of search brings it back.
 
 ---
 
@@ -168,7 +225,7 @@ moment and no amount of search brings it back.
 | Big5 | 13 710 | includes the HKSCS lead-byte range |
 | Shift_JIS | 6 879 | half-width katakana computed, not tabulated |
 | EUC-KR | 8 225 | KS X 1001 |
-| UTF-8 / UTF-16LE / UTF-16BE | — | via `moonbitlang/core/encoding` |
+| UTF-8 / UTF-16LE / UTF-16BE / UTF-32LE / UTF-32BE | — | self-validating; BOM handled exactly |
 | ISO-8859-1 / windows-1252 | — | the 0x80–0x9F difference is modelled exactly |
 
 Tables are generated by [`scripts/gen_tables.py`](scripts/gen_tables.py) from
@@ -180,7 +237,7 @@ free of third-party licence questions.
 ## Testing
 
 ```sh
-moon test                        # 31 unit tests
+moon test                        # 48 unit tests
 moon build --target js
 python scripts/e2e_check.py      # 192 cross-checks against CPython
 ```
