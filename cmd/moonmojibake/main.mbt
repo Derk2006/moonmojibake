@@ -14,6 +14,7 @@ struct Options {
   mut from : String?
   mut to : String?
   mut use_stdin : Bool
+  mut json : Bool
 }
 
 ///|
@@ -25,6 +26,7 @@ fn new_options() -> Options {
     from: None,
     to: None,
     use_stdin: false,
+    json: false,
   }
 }
 
@@ -55,6 +57,9 @@ fn parse_options(args : Array[String], start : Int) -> Options {
     } else if arg == "--to" {
       options.to = option_value(args, index)
       index = index + 2
+    } else if arg == "--json" {
+      options.json = true
+      index = index + 1
     } else if arg == "-" || arg == "--stdin" {
       options.use_stdin = true
       index = index + 1
@@ -101,11 +106,13 @@ fn usage() -> String {
     "moonmojibake — encoding detection and mojibake repair",
     "",
     "usage:",
-    "  moonmojibake detect  <file>              rank every code page for a file",
+    "  moonmojibake detect  <file> [--json]     rank every code page for a file",
     "  moonmojibake detect  --text \"...\"       ... for a string instead",
-    "  moonmojibake repair  <file> [-o out]     undo mojibake layer by layer",
+    "  moonmojibake repair  <file> [-o out] [--json]  undo mojibake layer by layer",
     "  moonmojibake convert <file> --from gbk --to utf-8 [-o out]",
     "  moonmojibake --version",
+    "",
+    "  --json          emit machine-readable JSON instead of a table",
     "",
     "inputs:",
     "  <file>          read raw bytes from a file (js backend)",
@@ -134,7 +141,11 @@ fn cmd_detect(args : Array[String], start : Int) -> Unit {
   let input = load_input(options)
   if input is Some((source, bytes)) {
     let rows = @mojibake.detect(bytes)
-    println(@mojibake.render_detection(source, bytes.length(), rows))
+    if options.json {
+      println(@mojibake.detection_json(source, bytes.length(), rows))
+    } else {
+      println(@mojibake.render_detection(source, bytes.length(), rows))
+    }
   }
 }
 
@@ -155,17 +166,24 @@ fn cmd_repair(args : Array[String], start : Int) -> Unit {
     match options.output {
       Some(path) => {
         write_text_file(path, result.text)
-        println("wrote \{path}")
-        if @mojibake.was_repaired(result) {
-          println(
-            "chain: \{@mojibake.render_chain(result)}  (score \{result.before()} -> \{result.after()})",
-          )
+        if options.json {
+          println(@mojibake.fix_json(source, result))
+        } else {
+          println("wrote \{path}")
+          if @mojibake.was_repaired(result) {
+            println(
+              "chain: \{@mojibake.render_chain(result)}  (score \{result.before()} -> \{result.after()})",
+            )
+          }
         }
       }
-      None => {
-        println(source)
-        println(@mojibake.render_fix(result))
-      }
+      None =>
+        if options.json {
+          println(@mojibake.fix_json(source, result))
+        } else {
+          println(source)
+          println(@mojibake.render_fix(result))
+        }
     }
   }
 }
