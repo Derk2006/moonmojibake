@@ -323,3 +323,17 @@ test "detect picks utf32 for chinese without a bom" {
   let rows = detect(encoded)
   assert_eq(rows[0].charset(), Charset::Utf32Le)
 }
+
+///|
+test "repair does not flip a fixed text into another script" {
+  // The mojibake of 你好 was already restored to Chinese, but the second
+  // round used to "improve" it into Hangul: the Hangul reading scores high
+  // because the frequency model does not penalise nonsense syllables.
+  let bytes = @utf8.encode("你好")
+  let broken = decode(bytes, Charset::Latin1).text()
+  let result = repair(broken)
+  assert_eq(result.text(), "你好")
+  assert_eq(result.steps().length(), 1)
+  assert_eq(result.steps()[0].right(), Charset::Utf8)
+}
+
