@@ -196,7 +196,7 @@ pub fn detect(bytes : Bytes) -> Array[Detection] {
       confidence: 0,
     })
   }
-  // Insertion sort: nine candidates, and stability matters for tie-breaking.
+  // Insertion sort: eleven candidates, and stability matters for tie-breaking.
   let mut i = 1
   while i < results.length() {
     let item = results[i]

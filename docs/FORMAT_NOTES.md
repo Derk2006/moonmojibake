@@ -24,7 +24,7 @@ uses 8 225 of 24 066.
 Why not a hash map or a sorted array of pairs? Because a table index is a single
 multiply and add, the whole thing is `const`-ish data the compiler can place in
 a data segment, and no allocation happens per character. Detection decodes the
-same bytes nine times, so per-character cost matters.
+same bytes eleven times, so per-character cost matters.
 
 Shift_JIS half-width katakana (`0xA1..0xDF`, single bytes) are computed —
 `U+FF61 + (byte - 0xA1)` — rather than tabulated. They are a linear range; a
@@ -111,10 +111,11 @@ as neutral made that accident look like ordinary punctuation.
 Candidates come from `Charset::all()`, in this order:
 
 ```
-utf-8, gbk, big5, shift_jis, euc-kr, windows-1252, latin1, utf-16le, utf-16be
+utf-8, gbk, big5, shift_jis, euc-kr, windows-1252, latin1,
+utf-16le, utf-16be, utf-32le, utf-32be
 ```
 
-Sorting is a stable insertion sort over nine elements, so ties resolve to this
+Sorting is a stable insertion sort over eleven elements, so ties resolve to this
 order. That is why plain ASCII comes back as UTF-8 rather than as whichever code
 page was tried last.
 
@@ -152,6 +153,37 @@ The cost is that a genuine BOM-less UTF-16 file holding CJK text is discounted
 too. That is the right trade: UTF-16 without a BOM is rare, UTF-16 with a BOM is
 detected exactly, and a false positive here poisons every other result.
 
+### The UTF-32 rule
+
+UTF-32 gets the same treatment as UTF-16, with one extra requirement: at least
+half of its code units must have an all-zero high half. For Latin text that
+number is 100%; for CJK it is still most of them, since every code point up to
+U+FFFF has two zero bytes above it.
+
+The ordering in `bom_charset` is load-bearing. A little-endian UTF-32 BOM is
+`FF FE 00 00`, which *starts with* the UTF-16LE BOM `FF FE`. Checking the
+two-byte BOM first would classify every UTF-32LE file as UTF-16LE and leave a
+`NUL` glued to the first character. The four-byte tests therefore run first, and
+`bom_charset` returns a single row with no scoring at all.
+
+Decoding is strict where it is cheap to be strict: a unit above U+10FFFF, a
+surrogate code point (`D800..DFFF`), or a trailing fragment shorter than four
+bytes each count as an error and become one U+FFFD. The leading BOM is stripped
+rather than carried into the text.
+
+### The binary rule
+
+`looks_binary` answers a different question from `detect`: not *which encoding*
+but *is this text at all*. It scans the first 8 KiB for a NUL byte and returns
+true if it finds one — unless the file is UTF-16 or UTF-32 shaped, or carries a
+BOM, in which case NULs are expected.
+
+This exists because of `scan`. A directory walk that force-decodes a PNG
+produces a confident-looking answer for a file that is not text, and one such
+row poisons a report. The threshold is deliberately crude: real text in any
+supported code page contains no NUL, and false positives only matter if a
+UTF-16/32 file slips past the two evidence checks above.
+
 ## Repair
 
 `repair(text)` runs at most four rounds. Each round tries every
@@ -172,6 +204,29 @@ UTF-16 is absent from both lists. Nobody re-encodes a file to UTF-16 by
 accident, and allowing it as a target made the search turn Chinese into Hangul,
 which decodes cleanly and scores well. That was a real bug, and the fix was to
 remove the option rather than to tune around it.
+
+### The script guard
+
+Removing UTF-16 as a target was necessary but not sufficient. The search is
+greedy and runs four rounds, so a *second* round could still take correct
+Chinese text, re-encode it as EUC-KR, decode it back, and land in Hangul — which
+decodes with zero errors and scores well precisely because Hangul has no
+frequency model holding it back. The JSON test for `repair` caught this: 你好
+came back as 콱봤.
+
+So each round now computes the dominant script of its input and refuses a step
+that leaves Han for Hangul or kana (and vice versa, in every direction). Latin
+and script-less input may go anywhere — that is the case repair exists for.
+
+```
+from Han / Hangul / kana  ->  only the same script
+from Latin or script-less ->  anything
+```
+
+This is a hard veto, not a score penalty, because a 4-point margin cannot
+outweigh a 90-point score. Encoding errors move text between *byte* domains;
+they do not translate a language. A step that changes the language is a wrong
+answer by construction.
 
 Chains are reported, not just results: `render_chain` gives
 `windows-1252 -> utf-8`, and `steps()` gives the individual pairs. A caller can

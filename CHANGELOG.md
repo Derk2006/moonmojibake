@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.2.0 — 2026-11-06
+
+### Added
+
+- **UTF-32LE / UTF-32BE** — decoding, encoding, detection and BOM handling, so
+  the candidate set is now eleven. UTF-32 needs its own evidence rule (at least
+  half of the code units must have a zero high half) and a BOM check that runs
+  *before* UTF-16, because `FF FE 00 00` starts with the UTF-16LE BOM.
+- **`scan`** — walks a directory, tallies every file by encoding, and reports
+  non-text files as `binary` instead of force-decoding them into nonsense.
+  Accepts `-r` to recurse. Unreadable and empty files are reported, not fatal.
+- **`--json`** on `detect`, `repair` and `scan` — one compact object per run,
+  stable field names, CJK emitted as-is. `repair.chain` is an array of
+  `{wrong, right}` steps rather than a rendered string, so callers can inspect
+  individual layers.
+- **`looks_binary`** — public NUL-byte test, waived for UTF-16/32 shaped input.
+
+### Fixed
+
+- **Repair could translate Chinese into Korean.** The greedy search is allowed
+  four rounds, and a later round could take already-correct 你好, re-encode it as
+  EUC-KR, decode it back as Hangul, and call that an improvement — zero errors
+  and a higher score, because Hangul has no frequency model to hold it back.
+  Fixing the symptom by removing UTF-16 as a target was not enough. Each round
+  now computes the dominant script of its input and refuses a step that swaps
+  Han, Hangul or kana for a different one. Latin and script-less input may still
+  go anywhere; that is the case repair exists for. Caught by the new JSON test,
+  not by any of the existing ones.
+
+### Changed
+
+- 31 → 48 unit tests.
+- CLI usage text lists `scan`, `-r` and `--json`.
+
 ## 0.1.0 — 2026-11-01
 
 First release.

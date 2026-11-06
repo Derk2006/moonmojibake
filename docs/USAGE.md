@@ -60,6 +60,84 @@ mm convert <file> --from gbk --to big5 -o out.bin
 `--from` defaults to detection, `--to` defaults to `utf-8`. Without `-o` the
 decoded text goes to stdout; with `-o` the re-encoded bytes go to the file.
 
+### `mm scan`
+
+```sh
+mm scan <dir>                 # this directory only
+mm scan <dir> -r              # recurse
+mm scan <dir> --json
+```
+
+Walks the directory and prints a tally by encoding, then one line per file:
+
+```
+scan samples (7 files)
+
+  encoding   files
+  big5           1
+  euc-kr         1
+  gbk            1
+  utf-8          3
+  shift_jis      1
+
+  samples/big5.txt                    big5
+  samples/euckr.txt                   euc-kr
+  samples/gbk.txt                     gbk
+  samples/moji_cp1252.txt             utf-8
+  samples/moji_latin1.txt             utf-8
+  samples/sjis.txt                    shift_jis
+  samples/utf8.txt                    utf-8
+```
+
+Files that are not text are reported as `binary` instead of being force-decoded.
+The test is a NUL byte in the first 8 KiB, waived for UTF-16/UTF-32 shaped files,
+because a directory walk that confidently labels a PNG as `gbk` is worse than
+useless.
+
+`scan` never modifies anything and never fails on an unreadable file — that file
+is counted as an error and skipped, so one bad path does not abort a tree walk.
+
+### `--json`
+
+`detect`, `repair` and `scan` accept `--json` and print one compact object per
+run. Field names are part of the interface.
+
+`detect`:
+
+```json
+{"source":"samples/gbk.txt","bytes":36,"guess":"gbk","confidence":51,
+ "score":86,"errors":0,
+ "candidates":[{"charset":"gbk","family":"Chinese","score":86,
+                "confidence":51,"errors":0}, ...]}
+```
+
+`candidates` is the full ranking, best first, same order as the table.
+
+`repair`:
+
+```json
+{"source":"samples/moji_latin1.txt","repaired":true,"before":40,"after":86,
+ "chain":[{"wrong":"latin1","right":"utf-8"}],
+ "text":"我们把这件事说清楚，然后开始写代码。"}
+```
+
+`chain` is an array of steps, not a string, so a caller can inspect individual
+layers. `repaired` is false with an empty chain when nothing was found.
+
+`scan`:
+
+```json
+{"dir":"samples","files":7,
+ "encodings":[{"charset":"utf-8","files":3}, ...],
+ "entries":[{"path":"samples/gbk.txt","binary":false,
+             "charset":"gbk","confidence":51}, ...]}
+```
+
+`entries` sets `"binary":true` and `"charset":null` for non-text files.
+`confidence` is present only for decoded files. Paths that cannot be read are
+reported as `unreadable` rather than aborting the walk, and empty files as
+`empty`.
+
 ### Encodings accepted by `--from` / `--to`
 
 | Name | Aliases |
@@ -67,6 +145,8 @@ decoded text goes to stdout; with `-o` the re-encoded bytes go to the file.
 | `utf-8` | `utf8` |
 | `utf-16le` | `utf16le` |
 | `utf-16be` | `utf16be` |
+| `utf-32le` | `utf32le`, `ucs-4le`, `ucs4le` |
+| `utf-32be` | `utf32be`, `ucs-4be`, `ucs4be` |
 | `gbk` | `cp936`, `gb2312`, `gb18030` |
 | `big5` | `big-5`, `cp950` |
 | `shift_jis` | `shift-jis`, `shiftjis`, `sjis`, `cp932` |
@@ -109,6 +189,16 @@ best.errors()       // malformed sequences under this reading
 `detect` returns exactly one row when a BOM settles the question, and an empty
 array when there are no bytes.
 
+### Binary check
+
+```moonbit
+@mojibake.looks_binary(bytes)   // Bool
+```
+
+True when the first 8 KiB contain a NUL byte, unless the data is UTF-16 or
+UTF-32 shaped. `scan` uses it to avoid labelling a PNG as `gbk`; callers walking
+a filesystem should use it too.
+
 ### Repair
 
 ```moonbit
@@ -120,6 +210,10 @@ result.after()         // score of the result
 @mojibake.was_repaired(result)   // Bool
 @mojibake.render_chain(result)   // "windows-1252 -> utf-8"
 ```
+
+A repair step is refused when it would move text from Han, Hangul or kana into a
+different one of those scripts. Encoding mistakes do not translate languages, so
+such a step is a wrong answer no matter how well it scores.
 
 ### Encode
 
@@ -138,6 +232,14 @@ produced by that code page, and repair uses exactly that to prune its search.
 charset.name()                         // "gbk"
 charset.family()                       // "Chinese"
 charset.is_double_byte()               // Bool
+```
+
+`all()` returns eleven entries, in this order — the order is the tie-break, so
+plain ASCII resolves to UTF-8:
+
+```
+utf-8, gbk, big5, shift_jis, euc-kr, windows-1252, latin1,
+utf-16le, utf-16be, utf-32le, utf-32be
 ```
 
 ### Report rendering
