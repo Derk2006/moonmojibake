@@ -337,3 +337,24 @@ test "repair does not flip a fixed text into another script" {
   assert_eq(result.steps()[0].right(), Charset::Utf8)
 }
 
+
+///|
+test "looks_binary flags a png header" {
+  assert_true(looks_binary(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"))
+}
+
+///|
+test "looks_binary accepts text without nul bytes" {
+  assert_true(!looks_binary(b"\xd6\xd0\xce\xc4"))
+  assert_true(!looks_binary(b"plain ascii"))
+  assert_true(!looks_binary(b""))
+}
+
+///|
+test "looks_binary accepts utf16 and utf32 text that carries nul bytes" {
+  let wide = encode("中文", Charset::Utf32Le).unwrap()
+  assert_true(!looks_binary(wide))
+  // UTF-16 of Latin text is half zero bytes by construction.
+  let latin = encode("hello", Charset::Utf16Le).unwrap()
+  assert_true(!looks_binary(latin))
+}

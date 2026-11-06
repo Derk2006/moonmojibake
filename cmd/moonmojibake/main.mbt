@@ -110,9 +110,11 @@ fn usage() -> String {
     "  moonmojibake detect  --text \"...\"       ... for a string instead",
     "  moonmojibake repair  <file> [-o out] [--json]  undo mojibake layer by layer",
     "  moonmojibake convert <file> --from gbk --to utf-8 [-o out]",
+    "  moonmojibake scan    <dir> [-r] [--json]  report the encoding of every file",
     "  moonmojibake --version",
     "",
     "  --json          emit machine-readable JSON instead of a table",
+    "  -r, --recursive descend into sub-directories (scan)",
     "",
     "inputs:",
     "  <file>          read raw bytes from a file (js backend)",
@@ -246,6 +248,7 @@ fn find_command(args : Array[String]) -> Int {
     if arg == "detect" ||
       arg == "repair" ||
       arg == "convert" ||
+      arg == "scan" ||
       arg == "help" ||
       arg == "--help" ||
       arg == "-h" ||
@@ -259,7 +262,6 @@ fn find_command(args : Array[String]) -> Int {
   -1
 }
 
-///|
 fn main {
   let args = @env.args()
   let command_index = find_command(args)
@@ -275,6 +277,75 @@ fn main {
     cmd_repair(args, start)
   } else if command == "convert" {
     cmd_convert(args, start)
+  } else if command == "scan" {
+    let mut dir = ""
+    let mut want_json = false
+    let mut recursive = false
+    let mut scan_index = start
+    while scan_index < args.length() {
+      let arg = args[scan_index]
+      if arg == "--json" {
+        want_json = true
+      } else if arg == "-r" || arg == "--recursive" {
+        recursive = true
+      } else if dir == "" {
+        dir = trim_trailing_separator(arg)
+      }
+      scan_index = scan_index + 1
+    }
+    if dir == "" {
+      println("error: scan needs a directory")
+      return
+    }
+    if !is_dir(dir) {
+      println("error: not a directory: \{dir}")
+      return
+    }
+    let scan_files : Array[String] = []
+    collect_files(dir, recursive, scan_files)
+    let scan_entries : Array[ScanEntry] = []
+    let scan_counts : Array[Tally] = []
+    for scan_path in scan_files {
+      let data = read_file(scan_path)
+      if data is Some(bytes) {
+        if @mojibake.looks_binary(bytes) {
+          scan_entries.push(
+            { path: scan_path, charset: "", confidence: 0, binary: true },
+          )
+          bump_count(scan_counts, "binary")
+        } else {
+          let rows = @mojibake.detect(bytes)
+          if rows.length() == 0 {
+            scan_entries.push(
+              { path: scan_path, charset: "empty", confidence: 0, binary: false },
+            )
+            bump_count(scan_counts, "empty")
+          } else {
+            let winner = rows[0]
+            let name = winner.charset().name()
+            scan_entries.push(
+              {
+                path: scan_path,
+                charset: name,
+                confidence: winner.confidence(),
+                binary: false,
+              },
+            )
+            bump_count(scan_counts, name)
+          }
+        }
+      } else {
+        scan_entries.push(
+          { path: scan_path, charset: "unreadable", confidence: 0, binary: false },
+        )
+        bump_count(scan_counts, "unreadable")
+      }
+    }
+    if want_json {
+      println(scan_json(dir, scan_entries, scan_counts))
+    } else {
+      println(render_scan(dir, scan_entries, scan_counts))
+    }
   } else if command == "--version" || command == "-V" || command == "version" {
     println(version_line())
   } else {
