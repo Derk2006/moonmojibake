@@ -241,3 +241,85 @@ test "report renders a table with the winner first" {
   assert_true(report.contains("gbk"))
   assert_true(report.contains("guess:"))
 }
+
+///|
+test "utf32 little endian round trip" {
+  let encoded = encode("中文 abc", Charset::Utf32Le).unwrap()
+  // Four bytes per code point, no prefix, no BOM.
+  assert_eq(encoded.length(), 24)
+  let decoded = decode(encoded, Charset::Utf32Le)
+  assert_eq(decoded.text(), "中文 abc")
+  assert_eq(decoded.errors(), 0)
+}
+
+///|
+test "utf32 big endian round trip" {
+  let encoded = encode("日本語", Charset::Utf32Be).unwrap()
+  let decoded = decode(encoded, Charset::Utf32Be)
+  assert_eq(decoded.text(), "日本語")
+  assert_eq(decoded.errors(), 0)
+}
+
+///|
+test "utf32 bom wins over the utf16 reading" {
+  // The LE UTF-32 mark starts with the complete UTF-16LE mark, so this is a
+  // regression test for the order of the BOM tests.
+  let body = encode("中文", Charset::Utf32Le).unwrap()
+  let buffer = Buffer()
+  buffer.write_byte(b'\xff')
+  buffer.write_byte(b'\xfe')
+  buffer.write_byte(b'\x00')
+  buffer.write_byte(b'\x00')
+  for b in body {
+    buffer.write_byte(b)
+  }
+  let rows = detect(buffer.to_bytes())
+  assert_eq(rows.length(), 1)
+  assert_eq(rows[0].charset(), Charset::Utf32Le)
+  assert_eq(rows[0].text(), "中文")
+  assert_eq(rows[0].confidence(), 100)
+}
+
+///|
+test "utf32 big endian bom is detected" {
+  let body = encode("中文", Charset::Utf32Be).unwrap()
+  let buffer = Buffer()
+  buffer.write_byte(b'\x00')
+  buffer.write_byte(b'\x00')
+  buffer.write_byte(b'\xfe')
+  buffer.write_byte(b'\xff')
+  for b in body {
+    buffer.write_byte(b)
+  }
+  let rows = detect(buffer.to_bytes())
+  assert_eq(rows[0].charset(), Charset::Utf32Be)
+  assert_eq(rows[0].text(), "中文")
+}
+
+///|
+test "utf32 counts a trailing partial unit as an error" {
+  let decoded = decode(b"\x2d\x4e\x00", Charset::Utf32Le)
+  assert_true(decoded.errors() > 0)
+}
+
+///|
+test "utf32 rejects code points outside unicode" {
+  // 0x00110000 is one past the last code point.
+  let decoded = decode(b"\x00\x11\x00\x00", Charset::Utf32Be)
+  assert_eq(decoded.errors(), 1)
+  assert_eq(decoded.text(), "\u{FFFD}")
+}
+
+///|
+test "utf32 rejects a surrogate code point" {
+  // U+D800, which UTF-32 must never carry.
+  let decoded = decode(b"\x00\x00\xd8\x00", Charset::Utf32Be)
+  assert_eq(decoded.errors(), 1)
+}
+
+///|
+test "detect picks utf32 for chinese without a bom" {
+  let encoded = encode("中文测试内容比较长一些", Charset::Utf32Le).unwrap()
+  let rows = detect(encoded)
+  assert_eq(rows[0].charset(), Charset::Utf32Le)
+}

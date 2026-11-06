@@ -113,7 +113,8 @@ fn usage() -> String {
     "  -               read raw bytes from stdin (js backend)",
     "",
     "encodings:",
-    "  utf-8, utf-16le, utf-16be, gbk, big5, shift_jis, euc-kr, latin1, windows-1252",
+    "  utf-8, utf-16le, utf-16be, utf-32le, utf-32be,",
+    "  gbk, big5, shift_jis, euc-kr, latin1, windows-1252",
   ]
   let out = StringBuilder()
   let mut index = 0
