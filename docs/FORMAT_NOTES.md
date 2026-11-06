@@ -57,7 +57,7 @@ Instead the generator derives the set from the standards themselves:
 - Big5 level 1, lead `0xA4..0xC6` — 5 495 frequent **traditional** characters,
   same reasoning.
 
-The union is 9 157 characters. Membership is a free, defensible, script-neutral
+The union is 9 156 characters. Membership is a free, defensible, script-neutral
 "is this in common use" test, and it is symmetric across simplified and
 traditional, which matters: if only GB2312 level 1 were used, every traditional
 character would look rare and Big5 would lose to GBK on its own text.

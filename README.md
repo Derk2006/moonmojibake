@@ -196,7 +196,7 @@ plausibility:
 The character-frequency signal does not ship a corpus. Membership in GB2312
 level 1 (3 755 frequent simplified characters) or Big5 level 1 (5 495 frequent
 traditional characters) is used as a free, defensible "is this character in
-common use" test covering both scripts, giving 9 157 characters total.
+common use" test covering both scripts, giving 9 156 characters total.
 
 ## How repair works
 

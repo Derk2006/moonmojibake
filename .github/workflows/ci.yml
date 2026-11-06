@@ -34,13 +34,21 @@ jobs:
       - name: Build library (wasm-gc)
         run: moon build --target wasm-gc
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          # The codec tables in CPython are part of the generator's input, so
+          # the version is pinned: a different interpreter can emit a different
+          # table and turn the reproducibility check into a false alarm.
+          python-version: '3.12'
+
       - name: Regenerated tables are up to date
         run: |
-          python3 scripts/gen_tables.py
+          python scripts/gen_tables.py
           git diff --exit-code -- src/mojibake/tables_gen.mbt
 
       - name: Cross-check against CPython codecs
-        run: python3 scripts/e2e_check.py
+        run: python scripts/e2e_check.py
 
       - name: CLI smoke test
         run: |

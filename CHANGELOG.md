@@ -29,6 +29,15 @@
   go anywhere; that is the case repair exists for. Caught by the new JSON test,
   not by any of the existing ones.
 
+- **CI was red from the first commit, and the cause was a reproducibility bug.**
+  The "regenerated tables are up to date" job hashed differently on CI than on
+  the author's machine, because `gen_tables.py` topped up the common-character
+  set from a corpus file that sat outside the repository. That file existed
+  locally and not in CI, so the committed table held one character CI could not
+  reproduce. The generator now reads nothing but the codecs and the standards,
+  the set is exactly 9 156 characters, and CI pins Python 3.12 because the codec
+  tables themselves are part of the input.
+
 ### Changed
 
 - 31 → 48 unit tests.
