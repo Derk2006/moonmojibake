@@ -73,6 +73,28 @@ fn encode_double_byte(text : String, charset : Charset) -> Bytes? {
 }
 
 ///|
+/// UTF-32 is fixed-width: every code point is one 32-bit unit, so encoding
+/// can never fail and needs no reverse table.
+fn encode_utf32(text : String, little_endian : Bool) -> Bytes {
+  let buffer = Buffer()
+  for ch in text {
+    let codepoint = ch.to_int()
+    if little_endian {
+      buffer.write_byte((codepoint & 0xFF).to_byte())
+      buffer.write_byte(((codepoint >> 8) & 0xFF).to_byte())
+      buffer.write_byte(((codepoint >> 16) & 0xFF).to_byte())
+      buffer.write_byte(((codepoint >> 24) & 0xFF).to_byte())
+    } else {
+      buffer.write_byte(((codepoint >> 24) & 0xFF).to_byte())
+      buffer.write_byte(((codepoint >> 16) & 0xFF).to_byte())
+      buffer.write_byte(((codepoint >> 8) & 0xFF).to_byte())
+      buffer.write_byte((codepoint & 0xFF).to_byte())
+    }
+  }
+  buffer.to_bytes()
+}
+
+///|
 /// Encode `text` into `charset`, or `None` when some character has no
 /// representation there.  A failure is meaningful: text that cannot be
 /// encoded in a code page was never produced by that code page.
@@ -82,6 +104,8 @@ pub fn encode(text : String, charset : Charset) -> Bytes? {
     Charset::Utf16Le =>
       Some(@utf16.encode(text, endianness=@utf16.Endian::Little))
     Charset::Utf16Be => Some(@utf16.encode(text, endianness=@utf16.Endian::Big))
+    Charset::Utf32Le => Some(encode_utf32(text, true))
+    Charset::Utf32Be => Some(encode_utf32(text, false))
     Charset::Latin1 => encode_latin1(text)
     Charset::Cp1252 => encode_cp1252(text)
     Charset::Gbk | Charset::Big5 | Charset::ShiftJis | Charset::EucKr =>

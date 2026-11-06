@@ -4,6 +4,8 @@ pub(all) enum Charset {
   Utf8
   Utf16Le
   Utf16Be
+  Utf32Le
+  Utf32Be
   Gbk
   Big5
   ShiftJis
@@ -23,6 +25,8 @@ pub fn Charset::name(self : Charset) -> String {
     Charset::Utf8 => "utf-8"
     Charset::Utf16Le => "utf-16le"
     Charset::Utf16Be => "utf-16be"
+    Charset::Utf32Le => "utf-32le"
+    Charset::Utf32Be => "utf-32be"
     Charset::Gbk => "gbk"
     Charset::Big5 => "big5"
     Charset::ShiftJis => "shift_jis"
@@ -36,7 +40,11 @@ pub fn Charset::name(self : Charset) -> String {
 /// Human readable family, used by the report renderer.
 pub fn Charset::family(self : Charset) -> String {
   match self {
-    Charset::Utf8 | Charset::Utf16Le | Charset::Utf16Be => "Unicode"
+    Charset::Utf8
+    | Charset::Utf16Le
+    | Charset::Utf16Be
+    | Charset::Utf32Le
+    | Charset::Utf32Be => "Unicode"
     Charset::Gbk | Charset::Big5 => "Chinese"
     Charset::ShiftJis | Charset::EucKr => "CJK"
     Charset::Latin1 | Charset::Cp1252 => "Single-byte"
@@ -65,6 +73,8 @@ pub fn Charset::all() -> Array[Charset] {
     Charset::Latin1,
     Charset::Utf16Le,
     Charset::Utf16Be,
+    Charset::Utf32Le,
+    Charset::Utf32Be,
   ]
 }
 
@@ -95,6 +105,8 @@ pub fn Charset::parse(name : String) -> Charset? {
     "utf-8" | "utf8" => Some(Charset::Utf8)
     "utf-16le" | "utf16le" => Some(Charset::Utf16Le)
     "utf-16be" | "utf16be" => Some(Charset::Utf16Be)
+    "utf-32le" | "utf32le" | "ucs-4le" | "ucs4le" => Some(Charset::Utf32Le)
+    "utf-32be" | "utf32be" | "ucs-4be" | "ucs4be" => Some(Charset::Utf32Be)
     "gbk" | "cp936" | "gb2312" | "gb18030" => Some(Charset::Gbk)
     "big5" | "big-5" | "cp950" => Some(Charset::Big5)
     "shift-jis" | "shiftjis" | "sjis" | "cp932" => Some(Charset::ShiftJis)

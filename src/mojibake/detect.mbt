@@ -25,10 +25,37 @@ fn starts_with_pair(bytes : Bytes, first : Int, second : Int) -> Bool {
 }
 
 ///|
+fn starts_with_quad(
+  bytes : Bytes,
+  first : Int,
+  second : Int,
+  third : Int,
+  fourth : Int,
+) -> Bool {
+  if bytes.length() < 4 {
+    return false
+  }
+  bytes[0].to_int() == first &&
+  bytes[1].to_int() == second &&
+  bytes[2].to_int() == third &&
+  bytes[3].to_int() == fourth
+}
+
+///|
 /// A byte order mark is the one case where detection is not a guess.
+///
+/// Order matters here: the UTF-32LE mark (FF FE 00 00) starts with the whole
+/// UTF-16LE mark (FF FE), so a two-byte test first would claim every LE
+/// UTF-32 file and then decode it as pairs of CJK / Hangul syllables.
 fn bom_charset(bytes : Bytes) -> Charset? {
   if starts_with_bytes(bytes, 0xEF, 0xBB, 0xBF) {
     return Some(Charset::Utf8)
+  }
+  if starts_with_quad(bytes, 0xFF, 0xFE, 0x00, 0x00) {
+    return Some(Charset::Utf32Le)
+  }
+  if starts_with_quad(bytes, 0x00, 0x00, 0xFE, 0xFF) {
+    return Some(Charset::Utf32Be)
   }
   if starts_with_pair(bytes, 0xFF, 0xFE) {
     return Some(Charset::Utf16Le)
@@ -67,6 +94,34 @@ fn utf16_evidence(bytes : Bytes, little_endian : Bool) -> Bool {
     index = index + 2
   }
   units > 0 && ascii_units * 2 >= units
+}
+
+///|
+/// UTF-32 is even easier to fake than UTF-16: any stream whose length is a
+/// multiple of four decodes into code points, and the plausible ones (ASCII,
+/// CJK, Hangul) all live in the low 16 bits.  Real UTF-32 text therefore has
+/// to *show* it: at least half of the code units must have zero high bytes.
+fn utf32_evidence(bytes : Bytes, little_endian : Bool) -> Bool {
+  let length = bytes.length()
+  if length < 8 || length % 4 != 0 {
+    return false
+  }
+  let mut zero_high = 0
+  let mut units = 0
+  let mut index = 0
+  while index + 3 < length {
+    let b0 = bytes[index].to_int()
+    let b1 = bytes[index + 1].to_int()
+    let b2 = bytes[index + 2].to_int()
+    let b3 = bytes[index + 3].to_int()
+    let high = if little_endian { b2 + b3 } else { b0 + b1 }
+    if high == 0 {
+      zero_high = zero_high + 1
+    }
+    units = units + 1
+    index = index + 4
+  }
+  units > 0 && zero_high * 2 >= units
 }
 
 ///|
@@ -124,6 +179,12 @@ pub fn detect(bytes : Bytes) -> Array[Detection] {
     if charset == Charset::Utf16Le || charset == Charset::Utf16Be {
       let little_endian = charset == Charset::Utf16Le
       if !utf16_evidence(bytes, little_endian) {
+        score = score / 2
+      }
+    }
+    if charset == Charset::Utf32Le || charset == Charset::Utf32Be {
+      let little_endian = charset == Charset::Utf32Le
+      if !utf32_evidence(bytes, little_endian) {
         score = score / 2
       }
     }

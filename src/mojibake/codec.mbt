@@ -109,6 +109,65 @@ fn decode_utf16(bytes : Bytes, little_endian : Bool) -> Decoded {
 }
 
 ///|
+/// Decode UTF-32.  Each code unit is a full code point, so the only thing a
+/// strict decoder has to reject is a value outside Unicode: above U+10FFFF,
+/// or inside the surrogate range (which UTF-32 must never carry).
+///
+/// The length check matters more than it looks.  UTF-32 is fixed-width, so a
+/// stream whose length is not a multiple of four is not UTF-32 at all, yet a
+/// lossy decoder would happily produce text from the prefix.  Counting the
+/// leftover bytes as errors keeps such a stream from winning detection.
+fn decode_utf32(bytes : Bytes, little_endian : Bool) -> Decoded {
+  let out = StringBuilder(size_hint=bytes.length() / 2 + 8)
+  let length = bytes.length()
+  let mut index = 0
+  let mut errors = 0
+  let mut chars = 0
+  let mut first = true
+  while index + 3 < length {
+    let b0 = bytes[index].to_int()
+    let b1 = bytes[index + 1].to_int()
+    let b2 = bytes[index + 2].to_int()
+    let b3 = bytes[index + 3].to_int()
+    // The high byte decides whether the value can be in range at all; check it
+    // before shifting so the arithmetic never has to rely on wrapping.
+    let mut codepoint = -1
+    if little_endian {
+      if b3 <= 0x10 {
+        codepoint = b0 + (b1 << 8) + (b2 << 16) + (b3 << 24)
+      }
+    } else if b0 <= 0x10 {
+      codepoint = b3 + (b2 << 8) + (b1 << 16) + (b0 << 24)
+    }
+    let valid = codepoint >= 0 &&
+      codepoint <= 0x10FFFF &&
+      !(codepoint >= 0xD800 && codepoint <= 0xDFFF)
+    if valid {
+      // Drop a leading byte-order mark, matching what the UTF-8 and UTF-16
+      // decoders do with `ignore_bom`.
+      if !(first && codepoint == 0xFEFF) {
+        out.write_char(codepoint.unsafe_to_char())
+        chars = chars + 1
+      }
+    } else {
+      out.write_char(replacement_char())
+      chars = chars + 1
+      errors = errors + 1
+    }
+    first = false
+    index = index + 4
+  }
+  // A trailing partial unit can never be valid UTF-32.
+  while index < length {
+    out.write_char(replacement_char())
+    chars = chars + 1
+    errors = errors + 1
+    index = index + 1
+  }
+  { text: out.to_string(), errors: errors, chars: chars }
+}
+
+///|
 fn decode_latin1(bytes : Bytes) -> Decoded {
   let out = StringBuilder(size_hint=bytes.length() + 8)
   let length = bytes.length()
@@ -151,6 +210,8 @@ pub fn decode(bytes : Bytes, charset : Charset) -> Decoded {
     Charset::Utf8 => decode_utf8(bytes)
     Charset::Utf16Le => decode_utf16(bytes, true)
     Charset::Utf16Be => decode_utf16(bytes, false)
+    Charset::Utf32Le => decode_utf32(bytes, true)
+    Charset::Utf32Be => decode_utf32(bytes, false)
     Charset::Latin1 => decode_latin1(bytes)
     Charset::Cp1252 => decode_cp1252(bytes)
     Charset::Gbk | Charset::Big5 | Charset::ShiftJis | Charset::EucKr =>
