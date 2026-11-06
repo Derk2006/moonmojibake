@@ -146,6 +146,65 @@ fn repair_targets() -> Array[Charset] {
 }
 
 ///|
+/// Coarse script tags.  Repair uses them to refuse a step that would swap one
+/// CJK script for another.
+const SCRIPT_NONE : Int = 0
+const SCRIPT_LATIN : Int = 1
+const SCRIPT_HAN : Int = 2
+const SCRIPT_HANGUL : Int = 3
+const SCRIPT_KANA : Int = 4
+
+///|
+fn dominant_script(text : String) -> Int {
+  let mut latin = 0
+  let mut han = 0
+  let mut hangul = 0
+  let mut kana = 0
+  for ch in text {
+    let codepoint = ch.to_int()
+    if codepoint >= 0x4E00 && codepoint <= 0x9FFF {
+      han = han + 1
+    } else if codepoint >= 0xAC00 && codepoint <= 0xD7AF {
+      hangul = hangul + 1
+    } else if codepoint >= 0x3040 && codepoint <= 0x30FF {
+      kana = kana + 1
+    } else if (codepoint >= 0x41 && codepoint <= 0x5A) ||
+      (codepoint >= 0x61 && codepoint <= 0x7A) ||
+      (codepoint >= 0xC0 && codepoint <= 0x24F) {
+      latin = latin + 1
+    }
+  }
+  if han >= hangul && han >= kana && han >= latin && han > 0 {
+    SCRIPT_HAN
+  } else if hangul >= kana && hangul >= latin && hangul > 0 {
+    SCRIPT_HANGUL
+  } else if kana >= latin && kana > 0 {
+    SCRIPT_KANA
+  } else if latin > 0 {
+    SCRIPT_LATIN
+  } else {
+    SCRIPT_NONE
+  }
+}
+
+///|
+/// Whether a repair step is allowed to turn `from` into `to`.
+///
+/// The classic case is single-byte garbage turning into real text, so Latin
+/// and script-less input may go anywhere.  But once the text is already
+/// Chinese, Japanese or Korean, a later round that lands in a *different* one
+/// of those scripts is not undoing an encoding mistake — it is re-reading
+/// perfectly good characters as another language.  A short Chinese string
+/// whose mojibake was already fixed can otherwise be "improved" into Hangul,
+/// which scores high because Hangul has no frequency model to hold it back.
+fn script_step_allowed(from : Int, to : Int) -> Bool {
+  if from == SCRIPT_HAN || from == SCRIPT_HANGUL || from == SCRIPT_KANA {
+    return to == from
+  }
+  true
+}
+
+///|
 /// How many chained mistakes repair is willing to undo.
 const REPAIR_MAX_ROUNDS : Int = 4
 
@@ -161,6 +220,7 @@ fn repair_round(text : String, current : Int) -> (String, Int, FixStep)? {
   let mut best_text = text
   let mut best_score = current
   let mut best : FixStep? = None
+  let from_script = dominant_script(text)
   for wrong in repair_sources() {
     let recovered = encode(text, wrong)
     if recovered is Some(bytes) {
@@ -170,6 +230,9 @@ fn repair_round(text : String, current : Int) -> (String, Int, FixStep)? {
         }
         let decoded = decode(bytes, right)
         if decoded.errors > 0 {
+          continue
+        }
+        if !script_step_allowed(from_script, dominant_script(decoded.text)) {
           continue
         }
         let score = score_decoded(decoded)
