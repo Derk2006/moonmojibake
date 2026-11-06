@@ -29,3 +29,17 @@ fn read_stdin() -> Bytes {
     "stdin needs the js backend: build with `moon build --target js` and run with node",
   )
 }
+
+///|
+fn list_dir(_path : String) -> Array[String] {
+  abort(
+    "directory scanning needs the js backend: build with `moon build --target js` and run with node",
+  )
+}
+
+///|
+fn is_dir(_path : String) -> Bool {
+  abort(
+    "directory scanning needs the js backend: build with `moon build --target js` and run with node",
+  )
+}

@@ -15,6 +15,13 @@ extern "js" fn fs_write_text(path : String, text : String) -> Unit =
 extern "js" fn fs_read_stdin() -> Bytes =
   "() => new Uint8Array(require('fs').readFileSync(0))"
 
+// 目录项：子目录名以 `/` 结尾，便于上层区分文件与目录。
+extern "js" fn fs_list_dir(path : String) -> Array[String] =
+  "(p) => require('fs').readdirSync(p, { withFileTypes: true }).map((d) => d.isDirectory() ? d.name + '/' : d.name)"
+
+extern "js" fn fs_is_dir(path : String) -> Bool =
+  "(p) => { try { return require('fs').statSync(p).isDirectory() } catch (e) { return false } }"
+
 ///|
 fn read_file(path : String) -> Bytes? {
   if fs_exists(path) {
@@ -37,4 +44,14 @@ fn write_text_file(path : String, text : String) -> Unit {
 ///|
 fn read_stdin() -> Bytes {
   fs_read_stdin()
+}
+
+///|
+fn list_dir(path : String) -> Array[String] {
+  fs_list_dir(path)
+}
+
+///|
+fn is_dir(path : String) -> Bool {
+  fs_is_dir(path)
 }

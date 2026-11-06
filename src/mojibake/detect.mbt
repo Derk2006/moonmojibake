@@ -238,6 +238,36 @@ pub fn detect(bytes : Bytes) -> Array[Detection] {
 }
 
 ///|
+/// Cheap gate for batch scanning: does this look like a binary file rather
+/// than text?
+///
+/// A NUL byte is the signal.  UTF-16 and UTF-32 text legitimately contain
+/// them, so a stream that shows either structure (or a BOM) is text; for
+/// everything else, a NUL in the first 8 KiB means an image, an archive or
+/// an object file, and ranking code pages for it would only produce noise.
+/// This is a heuristic for reporting, not a classifier.
+pub fn looks_binary(bytes : Bytes) -> Bool {
+  if bom_charset(bytes) is Some(_) {
+    return false
+  }
+  if utf16_evidence(bytes, true) || utf16_evidence(bytes, false) {
+    return false
+  }
+  if utf32_evidence(bytes, true) || utf32_evidence(bytes, false) {
+    return false
+  }
+  let limit = if bytes.length() < 8192 { bytes.length() } else { 8192 }
+  let mut index = 0
+  while index < limit {
+    if bytes[index].to_int() == 0 {
+      return true
+    }
+    index = index + 1
+  }
+  false
+}
+
+///|
 /// Just the winner, or `None` for empty input.
 pub fn detect_charset(bytes : Bytes) -> Charset? {
   let ranked = detect(bytes)
