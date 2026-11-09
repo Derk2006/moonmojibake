@@ -298,6 +298,34 @@ pub fn repair(text : String) -> FixResult {
 }
 
 ///|
+/// Read bytes whose encoding is not known, then repair the text.
+///
+/// UTF-8 is tried first and accepted when it decodes without a single error.
+/// That is the only reading under which the file needs no conversion at all;
+/// every other code page is a guess, and a wrong guess that happens to decode
+/// cleanly is the exact failure mode detection exists to weigh.  So the
+/// cheap, exact answer is taken when it is available, and detection only
+/// decides when UTF-8 cannot read the bytes.
+///
+/// The decoded text then goes through the same repair search as `repair`,
+/// because a file can be both non-UTF-8 *and* mojibake: cp1252 bytes carrying
+/// UTF-8 Chinese decode to a plausible string that is still wrong.
+pub fn repair_auto(bytes : Bytes) -> AutoFix {
+  let probe = decode(bytes, Charset::Utf8)
+  let charset = if probe.errors() == 0 {
+    Charset::Utf8
+  } else {
+    detect_charset_or(bytes, Charset::Utf8)
+  }
+  let text = if charset == Charset::Utf8 {
+    probe.text()
+  } else {
+    decode(bytes, charset).text()
+  }
+  { charset, result: repair(text) }
+}
+
+///|
 /// `true` when repair found at least one layer to undo.
 pub fn was_repaired(result : FixResult) -> Bool {
   result.steps.length() > 0

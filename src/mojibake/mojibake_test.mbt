@@ -431,3 +431,40 @@ test "detect still prefers gbk for chinese text" {
   let ranked = detect(bytes)
   assert_eq(ranked[0].charset(), Charset::Gbk)
 }
+
+///|
+test "repair_auto trusts clean utf-8" {
+  let bytes = b"\xe4\xb8\xad\xe6\x96\x87\xe6\xb5\x8b\xe8\xaf\x95"
+  let fixed = repair_auto(bytes)
+  assert_eq(fixed.charset(), Charset::Utf8)
+  assert_eq(fixed.text(), "中文测试")
+  // Nothing to convert and nothing to undo, so a caller may skip the write.
+  assert_true(!fixed.changed())
+}
+
+///|
+test "repair_auto reads gbk bytes as gbk" {
+  let bytes = b"\xd6\xd0\xce\xc4\xb2\xe2\xca\xd4"
+  let fixed = repair_auto(bytes)
+  assert_eq(fixed.charset(), Charset::Gbk)
+  assert_eq(fixed.text(), "中文测试")
+  assert_true(fixed.changed())
+}
+
+///|
+test "repair_auto peels a latin-1 layer off utf-8 text" {
+  // "中文测试" written as UTF-8, read as latin1, written as UTF-8 again.
+  let bytes = b"\xc3\xa4\xc2\xb8\xc2\xad\xc3\xa6\xc2\x96\xc2\x87\xc3\xa6\xc2\xb5\xc2\x8b\xc3\xa8\xc2\xaf\xc2\x95"
+  let fixed = repair_auto(bytes)
+  assert_eq(fixed.text(), "中文测试")
+  assert_true(was_repaired(fixed.result()))
+  assert_true(fixed.changed())
+}
+
+///|
+test "repair_auto accepts empty input" {
+  let fixed = repair_auto(b"")
+  assert_eq(fixed.charset(), Charset::Utf8)
+  assert_eq(fixed.text(), "")
+  assert_true(!fixed.changed())
+}

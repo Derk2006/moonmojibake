@@ -236,3 +236,33 @@ pub fn FixResult::before(self : FixResult) -> Int {
 pub fn FixResult::after(self : FixResult) -> Int {
   self.after
 }
+
+///|
+/// The result of reading bytes whose encoding nobody declared: which reading
+/// was used, and what repair managed to undo from there.
+pub struct AutoFix {
+  charset : Charset
+  result : FixResult
+}
+
+///|
+pub fn AutoFix::charset(self : AutoFix) -> Charset {
+  self.charset
+}
+
+///|
+pub fn AutoFix::result(self : AutoFix) -> FixResult {
+  self.result
+}
+
+///|
+pub fn AutoFix::text(self : AutoFix) -> String {
+  self.result.text
+}
+
+///|
+/// `true` when writing the result back would change the file: either the bytes
+/// were not UTF-8 to begin with, or a layer of mojibake was peeled off.
+pub fn AutoFix::changed(self : AutoFix) -> Bool {
+  self.charset != Charset::Utf8 || self.result.steps.length() > 0
+}
