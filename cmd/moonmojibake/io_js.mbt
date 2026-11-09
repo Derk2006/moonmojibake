@@ -16,7 +16,9 @@ extern "js" fn fs_read_stdin() -> Bytes =
   "() => new Uint8Array(require('fs').readFileSync(0))"
 
 // 目录项：子目录名以 `/` 结尾，便于上层区分文件与目录。
-extern "js" fn fs_list_dir(path : String) -> Array[String] =
+// 返回 FixedArray：JS FFI 里 Array 已弃用，转成 Array 的活儿放在 list_dir 里，
+// 让上层照旧用可变数组。
+extern "js" fn fs_list_dir(path : String) -> FixedArray[String] =
   "(p) => require('fs').readdirSync(p, { withFileTypes: true }).map((d) => d.isDirectory() ? d.name + '/' : d.name)"
 
 extern "js" fn fs_is_dir(path : String) -> Bool =
@@ -53,7 +55,11 @@ fn read_stdin() -> Bytes {
 
 ///|
 fn list_dir(path : String) -> Array[String] {
-  fs_list_dir(path)
+  let names : Array[String] = []
+  for name in fs_list_dir(path) {
+    names.push(name)
+  }
+  names
 }
 
 ///|
