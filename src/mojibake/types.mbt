@@ -9,6 +9,7 @@ pub(all) enum Charset {
   Gbk
   Big5
   ShiftJis
+  EucJp
   EucKr
   Latin1
   Cp1252
@@ -30,6 +31,7 @@ pub fn Charset::name(self : Charset) -> String {
     Charset::Gbk => "gbk"
     Charset::Big5 => "big5"
     Charset::ShiftJis => "shift_jis"
+    Charset::EucJp => "euc-jp"
     Charset::EucKr => "euc-kr"
     Charset::Latin1 => "latin1"
     Charset::Cp1252 => "windows-1252"
@@ -46,7 +48,8 @@ pub fn Charset::family(self : Charset) -> String {
     | Charset::Utf32Le
     | Charset::Utf32Be => "Unicode"
     Charset::Gbk | Charset::Big5 => "Chinese"
-    Charset::ShiftJis | Charset::EucKr => "CJK"
+    Charset::ShiftJis | Charset::EucJp => "Japanese"
+    Charset::EucKr => "Korean"
     Charset::Latin1 | Charset::Cp1252 => "Single-byte"
   }
 }
@@ -55,13 +58,22 @@ pub fn Charset::family(self : Charset) -> String {
 /// Whether the code page uses two-byte sequences for non-ASCII characters.
 pub fn Charset::is_double_byte(self : Charset) -> Bool {
   match self {
-    Charset::Gbk | Charset::Big5 | Charset::ShiftJis | Charset::EucKr => true
+    Charset::Gbk
+    | Charset::Big5
+    | Charset::ShiftJis
+    | Charset::EucJp
+    | Charset::EucKr => true
     _ => false
   }
 }
 
 ///|
 /// Every encoding the analyser knows about, in preference order for ties.
+///
+/// EUC-JP sits immediately after EUC-KR because the two share the 0xA1..0xFE
+/// byte range: whichever is tried first takes any tie that the script
+/// tie-breaker cannot settle, and Korean text is the one that can be read as
+/// kana, never the other way round.
 pub fn Charset::all() -> Array[Charset] {
   [
     Charset::Utf8,
@@ -69,6 +81,7 @@ pub fn Charset::all() -> Array[Charset] {
     Charset::Big5,
     Charset::ShiftJis,
     Charset::EucKr,
+    Charset::EucJp,
     Charset::Cp1252,
     Charset::Latin1,
     Charset::Utf16Le,
@@ -110,6 +123,7 @@ pub fn Charset::parse(name : String) -> Charset? {
     "gbk" | "cp936" | "gb2312" | "gb18030" => Some(Charset::Gbk)
     "big5" | "big-5" | "cp950" => Some(Charset::Big5)
     "shift-jis" | "shiftjis" | "sjis" | "cp932" => Some(Charset::ShiftJis)
+    "euc-jp" | "eucjp" | "ujis" | "hp-ux-euc" => Some(Charset::EucJp)
     "euc-kr" | "euckr" | "ks-c-5601" => Some(Charset::EucKr)
     "latin1" | "latin-1" | "iso-8859-1" | "iso8859-1" => Some(Charset::Latin1)
     "windows-1252" | "cp1252" | "win1252" => Some(Charset::Cp1252)

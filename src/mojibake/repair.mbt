@@ -57,12 +57,29 @@ fn encode_double_byte(text : String, charset : Charset) -> Bytes? {
     let codepoint = ch.to_int()
     if codepoint < 0x80 {
       buffer.write_byte(codepoint.to_byte())
-    } else if charset == Charset::ShiftJis &&
+    } else if (charset == Charset::ShiftJis || charset == Charset::EucJp) &&
       codepoint >= 0xFF61 &&
       codepoint <= 0xFF9F {
-      buffer.write_byte((0xA1 + codepoint - 0xFF61).to_byte())
+      // Same half-width katakana block, two different spellings: one bare
+      // byte for Shift_JIS, an 0x8E prefix for EUC-JP.
+      if charset == Charset::ShiftJis {
+        buffer.write_byte((0xA1 + codepoint - 0xFF61).to_byte())
+      } else {
+        buffer.write_byte(b'\x8e')
+        buffer.write_byte((0xA1 + codepoint - 0xFF61).to_byte())
+      }
     } else if codepoint < 0x10000 && reverse[codepoint] != 0 {
       let pair = reverse[codepoint]
+      buffer.write_byte((pair >> 8).to_byte())
+      buffer.write_byte((pair & 0xFF).to_byte())
+    } else if charset == Charset::EucJp &&
+      codepoint < 0x10000 &&
+      eucjp_0212_reverse[codepoint] != 0 {
+      // JIS X 0212 characters have no JIS X 0208 spelling, so they only ever
+      // take this branch.  The two-byte branch above is tried first because a
+      // character mapped in both levels should keep its standard form.
+      let pair = eucjp_0212_reverse[codepoint]
+      buffer.write_byte(b'\x8f')
       buffer.write_byte((pair >> 8).to_byte())
       buffer.write_byte((pair & 0xFF).to_byte())
     } else {
@@ -108,8 +125,11 @@ pub fn encode(text : String, charset : Charset) -> Bytes? {
     Charset::Utf32Be => Some(encode_utf32(text, false))
     Charset::Latin1 => encode_latin1(text)
     Charset::Cp1252 => encode_cp1252(text)
-    Charset::Gbk | Charset::Big5 | Charset::ShiftJis | Charset::EucKr =>
-      encode_double_byte(text, charset)
+    Charset::Gbk
+    | Charset::Big5
+    | Charset::ShiftJis
+    | Charset::EucJp
+    | Charset::EucKr => encode_double_byte(text, charset)
   }
 }
 
@@ -124,6 +144,7 @@ fn repair_sources() -> Array[Charset] {
     Charset::Gbk,
     Charset::Big5,
     Charset::ShiftJis,
+    Charset::EucJp,
     Charset::EucKr,
   ]
 }
@@ -139,6 +160,7 @@ fn repair_targets() -> Array[Charset] {
     Charset::Gbk,
     Charset::Big5,
     Charset::ShiftJis,
+    Charset::EucJp,
     Charset::EucKr,
     Charset::Cp1252,
     Charset::Latin1,

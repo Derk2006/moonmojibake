@@ -358,3 +358,59 @@ test "looks_binary accepts utf16 and utf32 text that carries nul bytes" {
   let latin = encode("hello", Charset::Utf16Le).unwrap()
   assert_true(!looks_binary(latin))
 }
+
+///|
+test "euc-jp decodes nihongo" {
+  // 日本語 in EUC-JP
+  let decoded = decode(b"\xc6\xfc\xcb\xdc\xb8\xec", Charset::EucJp)
+  assert_eq(decoded.text(), "日本語")
+  assert_eq(decoded.errors(), 0)
+  assert_eq(decoded.chars(), 3)
+}
+
+///|
+test "euc-jp half width katakana needs its 0x8e prefix" {
+  let decoded = decode(b"\x8e\xb1", Charset::EucJp)
+  assert_eq(decoded.text(), "ｱ")
+  assert_eq(decoded.errors(), 0)
+  // The same byte without the prefix is a lead byte, not a katakana.
+  let bare = decode(b"\xb1", Charset::EucJp)
+  assert_eq(bare.errors(), 1)
+}
+
+///|
+test "euc-jp three byte form reads jis x 0212" {
+  let decoded = decode(b"\x8f\xb0\xa1", Charset::EucJp)
+  assert_eq(decoded.text(), "丂")
+  assert_eq(decoded.errors(), 0)
+}
+
+///|
+test "euc-jp round trips through encode" {
+  let text = "漢字とひらがなとｶﾀｶﾅ"
+  let bytes = encode(text, Charset::EucJp).unwrap()
+  assert_eq(decode(bytes, Charset::EucJp).text(), text)
+}
+
+///|
+test "euc-jp encode prefers the two byte spelling" {
+  // 丂 has no JIS X 0208 form, so it must take the 0x8f path; 日 must not.
+  let rare = encode("丂", Charset::EucJp).unwrap()
+  assert_eq(rare.length(), 3)
+  assert_eq(rare[0].to_int(), 0x8F)
+  let common = encode("日", Charset::EucJp).unwrap()
+  assert_eq(common.length(), 2)
+}
+
+///|
+test "euc-jp rejects bytes outside its ranges" {
+  // 0xFF is not an EUC-JP lead byte.
+  let decoded = decode(b"\xff\xff", Charset::EucJp)
+  assert_eq(decoded.errors(), 2)
+}
+
+///|
+test "euc-jp parse aliases" {
+  assert_true(Charset::parse("EUC_JP").unwrap() == Charset::EucJp)
+  assert_true(Charset::parse("ujis").unwrap() == Charset::EucJp)
+}

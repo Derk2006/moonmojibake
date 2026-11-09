@@ -18,6 +18,7 @@ fn double_byte_table(charset : Charset) -> Array[Int] {
     Charset::Big5 => big5_table
     Charset::ShiftJis => sjis_table
     Charset::EucKr => euckr_table
+    Charset::EucJp => eucjp_table
     _ => {
       let empty : Array[Int] = []
       empty
@@ -83,6 +84,25 @@ fn build_common_set() -> Array[Bool] {
 let common_set : Array[Bool] = build_common_set()
 
 ///|
+/// Membership set for JIS X 0208 level 1, the 2965 kanji Japanese newspapers
+/// are expected to stick to.  The scorer uses it the other way round from
+/// `common_set`: it is evidence that a text full of kana is really Japanese,
+/// and that its kanji are not a Chinese reading of the same bytes.
+fn build_jis_level1_set() -> Array[Bool] {
+  let set : Array[Bool] = Array::make(0x10000, false)
+  for ch in jis_level1_chars {
+    let codepoint = ch.to_int()
+    if codepoint >= 0 && codepoint < 0x10000 {
+      set[codepoint] = true
+    }
+  }
+  set
+}
+
+///|
+let jis_level1_set : Array[Bool] = build_jis_level1_set()
+
+///|
 let gbk_reverse : Array[Int] = build_reverse(gbk_table)
 
 ///|
@@ -95,6 +115,9 @@ let sjis_reverse : Array[Int] = build_reverse(sjis_table)
 let euckr_reverse : Array[Int] = build_reverse(euckr_table)
 
 ///|
+let eucjp_reverse : Array[Int] = build_reverse(eucjp_table)
+
+///|
 /// Reverse index for a double-byte code page, or an empty array.
 fn double_byte_reverse(charset : Charset) -> Array[Int] {
   match charset {
@@ -102,9 +125,39 @@ fn double_byte_reverse(charset : Charset) -> Array[Int] {
     Charset::Big5 => big5_reverse
     Charset::ShiftJis => sjis_reverse
     Charset::EucKr => euckr_reverse
+    Charset::EucJp => eucjp_reverse
     _ => {
       let empty : Array[Int] = []
       empty
     }
   }
+}
+
+///|
+/// JIS X 0212 is the part of EUC-JP that needs three bytes: 0x8F followed by
+/// two cells of the 94x94 grid.  It cannot share the two-byte table, so it
+/// gets its own lookup keyed by the cell coordinates.
+fn jis0212_lookup(second : Int, third : Int) -> Int {
+  if second < 0xA1 || second > 0xFE || third < 0xA1 || third > 0xFE {
+    return 0
+  }
+  eucjp_0212_table[(second - 0xA1) * JIS_CELLS + (third - 0xA1)]
+}
+
+///|
+/// Reverse index for the 0x8F half of EUC-JP.  A hit packs `(second << 8) |
+/// third`, the same shape the two-byte reverse index uses.
+let eucjp_0212_reverse : Array[Int] = {
+  let reverse : Array[Int] = Array::make(0x10000, 0)
+  let mut index = 0
+  while index < eucjp_0212_table.length() {
+    let codepoint = eucjp_0212_table[index]
+    if codepoint > 0 && reverse[codepoint] == 0 {
+      let second = index / JIS_CELLS + 0xA1
+      let third = index % JIS_CELLS + 0xA1
+      reverse[codepoint] = (second << 8) | third
+    }
+    index = index + 1
+  }
+  reverse
 }

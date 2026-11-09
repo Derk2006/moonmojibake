@@ -18,10 +18,14 @@ let cp1252_high : Array[Int] = [
 
 ///|
 /// True when the code page uses a lead byte here.
+///
+/// EUC-JP's 0x8E and 0x8F prefixes are leads too, but they introduce forms the
+/// two-byte table cannot express, so they are handled before this predicate is
+/// consulted; what is left for it is the ordinary JIS X 0208 range.
 fn is_lead_byte(charset : Charset, byte : Int) -> Bool {
   match charset {
     Charset::Gbk | Charset::Big5 => byte >= 0x81 && byte <= 0xFE
-    Charset::EucKr => byte >= 0xA1 && byte <= 0xFE
+    Charset::EucKr | Charset::EucJp => byte >= 0xA1 && byte <= 0xFE
     Charset::ShiftJis =>
       (byte >= 0x81 && byte <= 0x9F) || (byte >= 0xE0 && byte <= 0xEF)
     _ => false
@@ -52,6 +56,35 @@ fn decode_double_byte(bytes : Bytes, charset : Charset) -> Decoded {
       out.write_char((0xFF61 + byte - 0xA1).unsafe_to_char())
       chars = chars + 1
       index = index + 1
+    } else if charset == Charset::EucJp &&
+      byte == 0x8E &&
+      index + 1 < length &&
+      bytes[index + 1].to_int() >= 0xA1 &&
+      bytes[index + 1].to_int() <= 0xDF {
+      // EUC-JP spells half-width katakana with an 0x8E prefix; the codepoint
+      // arithmetic is the same one Shift_JIS uses without the prefix.
+      out.write_char(
+        (0xFF61 + bytes[index + 1].to_int() - 0xA1).unsafe_to_char()
+      )
+      chars = chars + 1
+      index = index + 2
+    } else if charset == Charset::EucJp && byte == 0x8F && index + 2 < length {
+      // JIS X 0212: 0x8F plus two cells.  A miss is reported as an error and
+      // advances one byte, so the following bytes still get their own chance.
+      let codepoint = jis0212_lookup(
+        bytes[index + 1].to_int(),
+        bytes[index + 2].to_int(),
+      )
+      if codepoint != 0 {
+        out.write_char(codepoint.unsafe_to_char())
+        chars = chars + 1
+        index = index + 3
+      } else {
+        out.write_char(replacement_char())
+        chars = chars + 1
+        errors = errors + 1
+        index = index + 1
+      }
     } else if is_lead_byte(charset, byte) && index + 1 < length {
       let trail = bytes[index + 1].to_int()
       let codepoint = table_lookup(charset, byte, trail)
@@ -214,8 +247,11 @@ pub fn decode(bytes : Bytes, charset : Charset) -> Decoded {
     Charset::Utf32Be => decode_utf32(bytes, false)
     Charset::Latin1 => decode_latin1(bytes)
     Charset::Cp1252 => decode_cp1252(bytes)
-    Charset::Gbk | Charset::Big5 | Charset::ShiftJis | Charset::EucKr =>
-      decode_double_byte(bytes, charset)
+    Charset::Gbk
+    | Charset::Big5
+    | Charset::ShiftJis
+    | Charset::EucJp
+    | Charset::EucKr => decode_double_byte(bytes, charset)
   }
 }
 
