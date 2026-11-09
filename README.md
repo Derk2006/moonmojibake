@@ -44,14 +44,17 @@ text that was already decoded wrongly.
 | Code pages — UTF-8, UTF-16LE/BE, UTF-32LE/BE, Latin-1, windows-1252 | ✅ |
 | Detection — ranking, confidence, BOM handling | ✅ 12 candidates per call |
 | Detection — Chinese/Japanese disambiguation | ✅ JIS X 0208 level-1 test on kana texts |
+| Detection — ties | ✅ reported as ties (`ambiguous`, `tied`), never as a confident guess |
 | Repair — chained mojibake, up to 4 layers | ✅ returns the re-encode chain |
 | Repair — script guard | ✅ never swaps Chinese for Hangul or kana |
 | CLI — `detect` / `repair` / `convert` / `scan` / `fix` | ✅ js backend (Node), library works on every backend |
 | CLI — `fix` over a tree | ✅ dry run by default, `--write` to apply, idempotent |
 | CLI — `--json` on every subcommand | ✅ stable field names, for pipelines |
 | CLI — `--fail-if-not` | ✅ exit 2, so CI can reject a non-UTF-8 tree |
-| Unit tests | ✅ 61 passing (`moon test`) |
-| Cross-check against CPython | ✅ 240/240 (`scripts/e2e_check.py`) |
+| CLI — exit codes | ✅ 0 success, 1 usage/IO error, 2 assertion failed |
+| Unit tests | ✅ 67 passing (`moon test`) |
+| Cross-check against CPython | ✅ 257/257 (`scripts/e2e_check.py`) |
+| Exhaustive byte-space check | ✅ 127 287/127 287, both directions (`scripts/space_check.py`) |
 | Dependencies | ✅ MoonBit core only, zero FFI |
 | License | ✅ Apache-2.0 |
 
@@ -309,16 +312,24 @@ free of third-party licence questions.
 ## Testing
 
 ```sh
-moon test                        # 61 unit tests
+moon test                        # 67 unit tests
 moon build --target js
-python scripts/e2e_check.py      # 240 cross-checks against CPython
+python scripts/e2e_check.py      # 257 cross-checks against CPython
+python scripts/space_check.py    # 127 287 exhaustive checks, both directions
 ```
 
 The end-to-end script encodes known text in every supported code page, decodes
 it back through the MoonBit implementation, and compares byte-for-byte with
-CPython — plus a randomised fuzz pass over valid byte pairs for the four
-double-byte pages. Detection is checked against the label the text was encoded
-with.
+CPython — plus a randomised fuzz pass over valid byte pairs for the five
+double-byte pages, and a set of CLI contract checks (a failed command must
+exit non-zero, and a directory is not a file).
+
+The exhaustive script does not sample. It walks every lead/trail pair CPython
+accepts for GBK, Big5, Shift_JIS and EUC-KR, every JIS X 0212 cell and every
+half-width katakana spelling for EUC-JP, and checks both directions: what the
+bytes decode to, and what each character encodes back to. That is the check
+that answers "is any row of the table missing or pointing at the wrong
+character" instead of "does the sample happen to pass".
 
 ---
 
@@ -327,10 +338,15 @@ with.
 - The CLI reads and writes files only on the js backend; on other backends the
   library still works, and `--text` still runs, but file IO is not available.
   MoonBit core has no portable filesystem API.
-- Western text shorter than a sentence is genuinely ambiguous: Latin-1 and
-  windows-1252 are identical for anything that does not use 0x80–0x9F, and both
-  look plausible under several code pages. The confidence value says so instead
-  of pretending otherwise.
+- Some byte strings are genuinely ambiguous, and the tool says so rather than
+  guessing. A kana-only EUC-JP file lives in the JIS X 0208 rows that GBK keeps
+  for the same characters, so both names decode it to identical text; `detect`
+  prints `ambiguous — gbk and euc-jp …`, `--json` carries `ambiguous` and
+  `tied`, and `--fail-if-not` accepts either name. Pure ASCII is the same
+  situation by construction: every ASCII-compatible page agrees.
+- Western text shorter than a sentence is ambiguous for the same reason:
+  Latin-1 and windows-1252 are identical for anything that does not use
+  0x80–0x9F, and both look plausible under several code pages.
 - BOM-less UTF-16 holding CJK text cannot be proven and is deliberately
   discounted; UTF-16 with a BOM is detected exactly.
 - Healing is bounded by information loss. Once a byte became U+FFFD, the

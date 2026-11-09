@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.5.0 — 2026-11-09
+
+This release is about the answers a tool gives when it cannot give a good one.
+Three of them were wrong, and wrong in the worst way: plausible, quiet, and
+exiting 0.
+
+### Fixed
+
+- **Every failure path now exits non-zero.** `detect`, `repair` and `convert`
+  printed `error: …` and returned 0, so a missing file, a misspelled encoding
+  or an unrepresentable target all looked like success to a shell or CI job.
+  Exit codes are now 0 success, 1 usage/IO error, 2 assertion failed.
+- **Reading a directory no longer leaks a Node stack trace.** The js FFI tested
+  `exists` only, and `readFileSync` on a directory throws EISDIR, so
+  `mm detect some-dir/` printed `node:fs:736` instead of a diagnostic.
+  `read_file` now reports "not a file" and each command owns its message.
+- **A missing option value is an error, not a silent fallback.** `--from` at
+  the end of a command line used to parse as "no encoding given", so detection
+  ran and printed a confident answer to a question the user never asked.
+  `--text` combined with a non-UTF-8 `--from` is rejected for the same reason:
+  `--text` bytes are UTF-8 by construction, and reading them as GBK can only
+  produce mojibake.
+- **Tied readings are reported as ties.** EUC-JP hiragana occupies the JIS X
+  0208 rows GBK keeps for the same characters, so kana-only bytes decode to
+  identical text under both names. Detection named `gbk` at 85% confidence —
+  a coin flip dressed as a finding — because the `exclusive_script` floor
+  fired without checking whether the tie had actually been broken. It now
+  requires `top > second`; the confidence is 0, `detect` prints the tied
+  candidates, `--json` carries `ambiguous` and `tied`, and `--fail-if-not`
+  accepts either name.
+
+### Added
+
+- `is_ambiguous(rows)`, `ambiguous_candidates(rows)` and `is_ascii_text(text)`
+  in the library, so callers can act on a tie instead of inheriting one label.
+- [`scripts/space_check.py`](scripts/space_check.py) — an exhaustive
+  differential test against CPython in both directions: every lead/trail pair
+  for GBK, Big5, Shift_JIS and EUC-KR, every JIS X 0212 cell, every half-width
+  katakana spelling, and every character encoded back. 63 677 decodes and
+  63 610 encodes, 127 287 checks, no missing rows, no wrong code points.
+- CLI contract checks in `e2e_check.py`: 257 checks now, including exit codes
+  and the "a directory is not a file" case.
+- Unit tests 61 → 67.
+
 ## 0.4.0 — 2026-11-09
 
 ### Added

@@ -144,8 +144,11 @@ with a policy.
 | code | meaning |
 |---|---|
 | `0` | success; with `--fail-if-not`, every file matched |
-| `1` | the command was called wrong: unknown encoding, missing directory |
+| `1` | the command was called wrong: unknown encoding, missing directory, a path that cannot be read, a flag without a value, or a target encoding that cannot represent the text |
 | `2` | `--fail-if-not` did not hold |
+
+Every failure path returns non-zero. Nothing prints `error:` and then exits 0 —
+a caller that only looks at the status can trust it.
 
 `--fail-if-not` makes the walk an assertion instead of a report:
 
@@ -159,9 +162,30 @@ and `shift-jis` are accepted and reported in canonical form. In text mode the
 mismatches are printed one per line after the table; in `--json` mode they stay
 out of stdout and the verdict is carried by `assert_ok`.
 
+A tie counts as a match. When two code pages decode the bytes to identical
+text, either name is a correct description of the file, so
+`mm detect kana.bin --fail-if-not euc-jp` passes even when `gbk` was listed
+first. Rejecting it would fail a build over a distinction the bytes do not
+contain.
+
 Only `detect` and `scan` take this flag. `fix` does not: it already changes the
 files, and an assertion about what they were before would be a different
 question.
+
+### Ambiguous input
+
+Detection is allowed to answer "this is a tie" instead of picking a winner.
+Two cases produce one:
+
+- **Pure ASCII.** Every ASCII-compatible code page produces and accepts the
+  same bytes; the top of the ranking is a convention, not evidence.
+- **Kana-only EUC-JP.** JIS X 0208 rows 0xA4 and 0xA5 hold the same kana in
+  GBK, so `あいうえお` has one spelling that both code pages read the same way.
+
+In both cases `detect` prints the tied names and `--json` sets `ambiguous` to
+`true` with the tied list in `tied`. `rows[0]` is still a valid answer — it is
+just not the only one — so library callers that need a single name can keep
+using `detect_charset`.
 
 ### `--json`
 
@@ -172,12 +196,15 @@ object per run. Field names are part of the interface.
 
 ```json
 {"source":"samples/gbk.txt","bytes":36,"guess":"gbk","confidence":51,
- "score":86,"errors":0,
+ "ambiguous":false,"tied":["gbk"],"score":86,"errors":0,
  "candidates":[{"charset":"gbk","family":"Chinese","score":86,
                 "confidence":51,"errors":0}, ...]}
 ```
 
-`candidates` is the full ranking, best first, same order as the table.
+`candidates` is the full ranking, best first, same order as the table. `tied`
+holds every candidate that decodes the bytes to the same text with the same
+score; it always contains `guess`, and has more than one entry only when the
+input is genuinely ambiguous.
 
 `repair`:
 
@@ -273,6 +300,19 @@ best.errors()       // malformed sequences under this reading
 `detect` returns exactly one row when a BOM settles the question, and an empty
 array when there are no bytes.
 
+Two helper functions answer the question a single label cannot:
+
+```moonbit
+@mojibake.is_ambiguous(rows)              // Bool
+@mojibake.ambiguous_candidates(rows)      // Array[Charset], winner included
+@mojibake.is_ascii_text(text)             // Bool
+```
+
+`is_ambiguous` is true when the runner-up decodes the bytes to the same text
+and scores the same — not a worse guess, the same guess. `rows[0]` remains a
+valid answer, which is why `detect_charset` keeps returning it; a caller that
+reports confidence should report the tie instead.
+
 ### Binary check
 
 ```moonbit
@@ -340,6 +380,14 @@ line-oriented printer.
 
 ```sh
 moon test
-python scripts/e2e_check.py            # needs the js build
+python scripts/e2e_check.py            # needs the js build; 257 checks
 python scripts/e2e_check.py --rounds 200
+python scripts/space_check.py          # 127 287 checks, both directions
 ```
+
+`e2e_check.py` samples: real sentences plus random valid pairs, and a set of
+CLI contract checks. `space_check.py` does not sample — it walks every
+lead/trail pair each code page accepts, every JIS X 0212 cell, and every
+half-width katakana spelling, then encodes every decodable character back.
+Use it when a table or a byte-range branch changes; it is what catches a
+missing row, which sampling reliably misses.
