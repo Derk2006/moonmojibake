@@ -130,6 +130,74 @@ def random_bytes(rng, codec, count):
     return b"".join(picked)
 
 
+def check_cli_contract(workdir):
+    """Exit codes are part of the interface.
+
+    A command that prints `error:` and returns 0 is worse than one that
+    crashes: the shell, the CI job and the next tool in the pipeline all read
+    that 0 as "this worked".  Every failure path is checked here, including
+    the two that used to leak a Node stack trace.
+    """
+    checks = 0
+    failures = 0
+
+    def expect(args, want, note, forbidden=None):
+        nonlocal checks, failures
+        code, out, err = run(args)
+        checks += 1
+        if code != want:
+            failures += 1
+            print(
+                f"FAIL cli {note}: expected exit {want}, got {code} "
+                f"({out.strip()[:90]!r} {err.strip()[:90]!r})"
+            )
+        if forbidden and forbidden in out + err:
+            failures += 1
+            print(f"FAIL cli {note}: leaked a runtime stack trace")
+
+    missing = os.path.join(workdir, "missing.txt")
+    present = os.path.join(workdir, "present.txt")
+    with open(present, "wb") as fh:
+        fh.write(b"hello")
+
+    expect(["detect", missing], 1, "detect on a missing file")
+    expect(["repair", missing], 1, "repair on a missing file")
+    expect(["convert", missing, "--from", "gbk"], 1, "convert on a missing file")
+    expect(["detect", workdir], 1, "detect on a directory", "node:fs")
+    expect(["scan", present], 1, "scan on a file")
+    expect(["fix", present], 1, "fix on a file")
+    expect(["convert", present, "--from", "nope"], 1, "unknown --from")
+    expect(["convert", present, "--to", "nope"], 1, "unknown --to")
+    expect(["detect", present, "--from"], 1, "flag without a value")
+    expect(
+        ["convert", present, "--text", "hi", "--from", "gbk"],
+        1,
+        "--text with a legacy --from",
+    )
+
+    expect(["convert", present, "--from", "gbk", "--to", "gbk"], 0, "convert works")
+    expect(["detect", present, "--fail-if-not", "utf-8"], 0, "gate passes")
+    expect(["detect", present, "--fail-if-not", "utf-16le"], 2, "gate asserts")
+
+    # あいうえお in EUC-JP decodes identically under GBK.  Both names are
+    # correct, so the gate must accept either — and the JSON must say so
+    # instead of claiming confidence in one of them.
+    kana = os.path.join(workdir, "kana.bin")
+    with open(kana, "wb") as fh:
+        fh.write("あいうえお".encode("euc_jp"))
+    expect(["detect", kana, "--fail-if-not", "euc-jp"], 0, "gate accepts a tie")
+    expect(["detect", kana, "--fail-if-not", "gbk"], 0, "gate accepts the tie's other name")
+    expect(["detect", kana, "--fail-if-not", "big5"], 2, "gate rejects a non-tie")
+
+    checks += 1
+    _code, out, _err = run(["detect", kana, "--json"])
+    if '"ambiguous":true' not in out or '"tied":["gbk","euc-jp"]' not in out:
+        failures += 1
+        print(f"FAIL cli json: the tie is not reported: {out[:120]!r}")
+
+    return checks, failures
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--rounds", type=int, default=40)
@@ -174,6 +242,10 @@ def main():
                     if out.strip("\n") != expected:
                         failures += 1
                         print(f"FAIL detect-text {name}: got {out!r}")
+
+        c, f = check_cli_contract(workdir)
+        checks += c
+        failures += f
 
         rng = random.Random(20261101)
         for codec, name, _label in CASES:

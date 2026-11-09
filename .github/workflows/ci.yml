@@ -50,6 +50,9 @@ jobs:
       - name: Cross-check against CPython codecs
         run: python scripts/e2e_check.py
 
+      - name: Exhaustive byte-space check
+        run: python scripts/space_check.py
+
       - name: CLI smoke test
         run: |
           CLI=_build/js/debug/build/cmd/moonmojibake/moonmojibake.js
