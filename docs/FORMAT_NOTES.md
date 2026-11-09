@@ -5,7 +5,7 @@ the next person can change a number knowing what it was holding up.
 
 ## Table layout
 
-All four double-byte code pages share one flat indexing scheme:
+All five double-byte code pages share one flat indexing scheme:
 
 ```
 index = (lead - 0x81) * 191 + (trail - 0x40)
@@ -17,18 +17,41 @@ A zero means "this pair is not mapped", which is unambiguous because U+0000 is
 never a two-byte code-page character.
 
 Sharing the layout across code pages means one lookup function, one reverse-
-index builder, and one set of bounds checks instead of four. The cost is that
+index builder, and one set of bounds checks instead of five. The cost is that
 sparse pages (EUC-KR maps only `0xA1..0xFE` × `0xA1..0xFE`) waste slots: EUC-KR
 uses 8 225 of 24 066.
 
 Why not a hash map or a sorted array of pairs? Because a table index is a single
 multiply and add, the whole thing is `const`-ish data the compiler can place in
 a data segment, and no allocation happens per character. Detection decodes the
-same bytes eleven times, so per-character cost matters.
+same bytes twelve times, so per-character cost matters.
 
 Shift_JIS half-width katakana (`0xA1..0xDF`, single bytes) are computed —
 `U+FF61 + (byte - 0xA1)` — rather than tabulated. They are a linear range; a
-table would be 63 redundant entries and one more thing to get wrong.
+table would be 63 redundant entries and one more thing to get wrong. EUC-JP
+spells the same block as `0x8E` followed by `0xA1..0xDF`, so the same
+arithmetic applies one byte later.
+
+### EUC-JP is two tables, not one
+
+EUC-JP has three forms, and only one of them fits a two-byte slot:
+
+| Form | Bytes | Repertoire | Stored as |
+|---|---|---|---|
+| ASCII | `0x00..0x7F` | ASCII | passthrough |
+| half-width katakana | `0x8E` + `0xA1..0xDF` | U+FF61..U+FF9F | computed |
+| JIS X 0208 | `0xA1..0xFE` × `0xA1..0xFE` | 6 879 characters | the shared pair table |
+| JIS X 0212 | `0x8F` + `0xA1..0xFE` × `0xA1..0xFE` | 6 067 characters | its own 94×94 table |
+
+JIS X 0212 is the supplementary kanji set that only ever appears behind the
+`0x8F` prefix, so it gets a second table indexed by cell coordinates rather than
+by lead/trail. Folding it into the pair table is not possible without losing
+either the prefix or the pair, and the two-level split mirrors the standard.
+
+Encoding goes the other way round: the pair table is consulted first, and only
+characters with no JIS X 0208 spelling fall through to the 0212 table. A
+character mapped in both levels therefore keeps its standard, two-byte form, and
+a round trip is stable.
 
 ## Generation
 
@@ -106,16 +129,44 @@ the same fullwidth block and had to be excluded explicitly, because a Chinese
 code page read as Shift_JIS produces exactly that and nothing else. Counting it
 as neutral made that accident look like ordinary punctuation.
 
+### Telling Japanese from Chinese
+
+EUC-JP and Shift_JIS both nest inside GBK: every byte they can use is also a
+valid GBK byte, so a Japanese file always decodes as Chinese with zero errors.
+Worse, GBK reserves rows `0xA4`/`0xA5` for the same kana block, so the Chinese
+reading keeps the kana too — "の" and "カタカナ" survive byte-for-byte. The kana
+count therefore cannot decide, which is why adding EUC-JP first produced a
+55-byte Japanese sample that tied at 88/88 and lost the tie on candidate order.
+
+What does decide is the kanji. The first test tried was "is this kanji in the
+JIS repertoire at all", and it failed: JIS holds about 7 000 ideographs and
+therefore most Chinese hanzi as well, so `泣塑胳矢鞠戳机` passed as readily as
+`日本語文章漢字`. JIS X 0208 **level 1** is a frequency set — 2 965 kanji that
+newspapers are expected to stick to — and the Chinese reading fails it often
+enough to be visible.
+
+The penalty is measured against the ideographs, not the whole text, because
+kana and punctuation carry no evidence either way:
+
+```
+penalty = 30 * (kanji outside JIS level 1) / (all kanji)     # only when kana > 0
+```
+
+A Chinese reading of Japanese bytes loses 10–20 points; an honest Japanese
+reading loses nothing, since by construction all of its kanji came from the
+standard. Text with no kana is untouched, so GBK, Big5 and EUC-KR detection
+keep the behaviour they had before EUC-JP existed.
+
 ## Detection
 
 Candidates come from `Charset::all()`, in this order:
 
 ```
-utf-8, gbk, big5, shift_jis, euc-kr, windows-1252, latin1,
+utf-8, gbk, big5, shift_jis, euc-kr, euc-jp, windows-1252, latin1,
 utf-16le, utf-16be, utf-32le, utf-32be
 ```
 
-Sorting is a stable insertion sort over eleven elements, so ties resolve to this
+Sorting is a stable insertion sort over twelve elements, so ties resolve to this
 order. That is why plain ASCII comes back as UTF-8 rather than as whichever code
 page was tried last.
 
@@ -246,3 +297,9 @@ audit the reasoning instead of trusting the output.
 - The frequency model covers Han characters only. Kana and Hangul get a fixed
   score because there is no frequency data behind them, which makes Japanese and
   Korean detection weaker than Chinese detection.
+- Kana-only text has no tie-breaker left. A katakana string in EUC-JP decodes to
+  byte-identical katakana in GBK, so both readings score the same and the label
+  falls to candidate order. The decoded text is correct either way; only the
+  reported charset is wrong, and it says `gbk` where a Japanese user expects
+  `euc-jp`. Every mixed Japanese sample with at least one kanji resolves
+  correctly.

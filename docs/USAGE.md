@@ -25,7 +25,8 @@ the usual reason, since every ASCII-compatible code page decodes it identically.
 ```
   #  encoding        score  conf  errors  sample
   1  gbk                86    51       0  我们把这件事说清楚，然后开始写代码。
-  2  euc-kr             73     0       0  乖쳬겉侶숭慤綱헌뇝，횔빈역迦畇덜쯤。
+  2  euc-kr             69     0       0  乖쳬겉侶숭慤綱헌뇝，횔빈역迦畇덜쯤。
+  3  euc-jp             66     0       2  厘断委宸周並傍賠萱��隼朔蝕兵亟旗鷹。
 ```
 
 ### `mm repair`
@@ -37,7 +38,7 @@ mm repair <file> -o fixed.txt # write only the repaired text
 
 ```
 samples/moji_latin1.txt
-score 48 -> 90
+score 40 -> 86
 chain: latin1 -> utf-8
 
 我们把这件事说清楚，然后开始写代码。
@@ -71,16 +72,18 @@ mm scan <dir> --json
 Walks the directory and prints a tally by encoding, then one line per file:
 
 ```
-scan samples (7 files)
+scan samples (8 files)
 
   encoding   files
   big5           1
+  euc-jp         1
   euc-kr         1
   gbk            1
   utf-8          3
   shift_jis      1
 
   samples/big5.txt                    big5
+  samples/eucjp.txt                   euc-jp
   samples/euckr.txt                   euc-kr
   samples/gbk.txt                     gbk
   samples/moji_cp1252.txt             utf-8
@@ -150,6 +153,7 @@ reported as `unreadable` rather than aborting the walk, and empty files as
 | `gbk` | `cp936`, `gb2312`, `gb18030` |
 | `big5` | `big-5`, `cp950` |
 | `shift_jis` | `shift-jis`, `shiftjis`, `sjis`, `cp932` |
+| `euc-jp` | `eucjp`, `ujis`, `hp-ux-euc` |
 | `euc-kr` | `euckr`, `ks-c-5601` |
 | `latin1` | `latin-1`, `iso-8859-1` |
 | `windows-1252` | `cp1252`, `win1252` |
@@ -234,11 +238,11 @@ charset.family()                       // "Chinese"
 charset.is_double_byte()               // Bool
 ```
 
-`all()` returns eleven entries, in this order — the order is the tie-break, so
+`all()` returns twelve entries, in this order — the order is the tie-break, so
 plain ASCII resolves to UTF-8:
 
 ```
-utf-8, gbk, big5, shift_jis, euc-kr, windows-1252, latin1,
+utf-8, gbk, big5, shift_jis, euc-kr, euc-jp, windows-1252, latin1,
 utf-16le, utf-16be, utf-32le, utf-32be
 ```
 

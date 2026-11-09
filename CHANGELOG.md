@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.3.0 — 2026-11-09
+
+### Added
+
+- **EUC-JP**, in both directions, so the candidate set is now twelve and
+  Japanese is no longer reachable only through Shift_JIS. Three forms are
+  handled: JIS X 0208 in the shared pair table (6 879 mappings), JIS X 0212
+  behind the `0x8F` prefix in a separate 94×94 table (6 067 mappings), and
+  half-width katakana as `0x8E` + `0xA1..0xDF`, computed rather than tabulated.
+  Encoding consults the pair table first, so a character mapped in both levels
+  keeps its standard two-byte spelling and round trips are stable. Aliases:
+  `eucjp`, `ujis`, `hp-ux-euc`.
+- **JIS X 0208 level-1 char set** (2 965 characters) in `tables_gen.mbt`, used
+  as the frequency model for Japanese. Generated from CPython like the rest.
+
+### Fixed
+
+- **Japanese files were attributed to GBK.** EUC-JP's byte range nests inside
+  GBK's, and GBK reserves the same `0xA4`/`0xA5` rows for kana, so a Japanese
+  file decoded as GBK with zero errors *and kept its kana* — a 55-byte sample
+  tied at 88/88 and lost only on candidate order. The first attempt at a fix,
+  "are these kanji in the JIS repertoire at all", does not work: JIS holds about
+  7 000 ideographs and therefore most Chinese hanzi too. The scorer now checks
+  the kanji against JIS level 1 and subtracts up to 30 points, measured over the
+  ideographs only, and only when the text contains kana. Text without kana is
+  untouched, so GBK / Big5 / EUC-KR detection is unchanged.
+
+### Changed
+
+- `Charset::family()` is no longer one "CJK" bucket: Shift_JIS and EUC-JP report
+  `Japanese`, EUC-KR reports `Korean`. The JSON output carries the new values.
+
 ## 0.2.0 — 2026-11-06
 
 ### Added

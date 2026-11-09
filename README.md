@@ -39,15 +39,17 @@ text that was already decoded wrongly.
 
 | Area | State |
 |---|---|
-| Code pages — GBK, Big5, Shift_JIS, EUC-KR | ✅ 50 605 two-byte mappings, generated from CPython codecs |
+| Code pages — GBK, Big5, Shift_JIS, EUC-JP, EUC-KR | ✅ 63 551 two-byte mappings, generated from CPython codecs |
+| Code pages — EUC-JP three-byte form (JIS X 0212) | ✅ 6 067 mappings in their own 94×94 table |
 | Code pages — UTF-8, UTF-16LE/BE, UTF-32LE/BE, Latin-1, windows-1252 | ✅ |
-| Detection — ranking, confidence, BOM handling | ✅ 11 candidates per call |
+| Detection — ranking, confidence, BOM handling | ✅ 12 candidates per call |
+| Detection — Chinese/Japanese disambiguation | ✅ JIS X 0208 level-1 test on kana texts |
 | Repair — chained mojibake, up to 4 layers | ✅ returns the re-encode chain |
 | Repair — script guard | ✅ never swaps Chinese for Hangul or kana |
 | CLI — `detect` / `repair` / `convert` / `scan` | ✅ js backend (Node), library works on every backend |
 | CLI — `--json` on every subcommand | ✅ stable field names, for pipelines |
-| Unit tests | ✅ 48 passing (`moon test`) |
-| Cross-check against CPython | ✅ 192/192 (`scripts/e2e_check.py`) |
+| Unit tests | ✅ 57 passing (`moon test`) |
+| Cross-check against CPython | ✅ 240/240 (`scripts/e2e_check.py`) |
 | Dependencies | ✅ MoonBit core only, zero FFI |
 | License | ✅ Apache-2.0 |
 
@@ -70,18 +72,18 @@ samples/gbk.txt (36 bytes)
   #  encoding        score  conf  errors  sample
   1  gbk                86    51       0  我们把这件事说清楚，然后开始写代码。
   2  euc-kr             69     0       0  乖쳬겉侶숭慤綱헌뇝，횔빈역迦畇덜쯤。
-  3  big5               54     0       2  扂蠅參涴璃岈佽ь奠ㄛ�遣騜羌標斐�鎢﹝
-  4  utf-16be           47     0       0  컒쏇냑헢볾쫂쮵쟥돾ꎬ좻뫳뾪쪼킴듺싫ꆣ
+  3  euc-jp             66     0       2  厘断委宸周並傍賠萱��隼朔蝕兵亟旗鷹。
+  4  big5               54     0       2  扂蠅參涴璃岈佽ь奠ㄛ�遣騜羌標斐�鎢﹝
   ...
-  9  utf-8               3     0      19  ���ǰ������˵�����Ȼ��ʼд���
- 11  utf-32be            0     0       9  ���������
+ 10  utf-8               3     0      19  ���ǰ������˵�����Ȼ��ʼд���
+ 12  utf-32be            0     0       9  ���������
 
 guess: gbk  (confidence 51%, score 86)
 ```
 
 Every candidate is shown, including the ones that lost badly, because the
-ranking is the evidence: eleven readings, one of which is text and ten of which
-are not.
+ranking is the evidence: twelve readings, one of which is text and eleven of
+which are not.
 
 ```sh
 mm repair samples/moji_latin1.txt
@@ -108,16 +110,18 @@ mm scan samples -r
 ```
 
 ```
-scan samples (7 files)
+scan samples (8 files)
 
   encoding   files
   big5           1
+  euc-jp         1
   euc-kr         1
   gbk            1
   utf-8          3
   shift_jis      1
 
   samples/big5.txt                    big5
+  samples/eucjp.txt                   euc-jp
   samples/euckr.txt                   euc-kr
   samples/gbk.txt                     gbk
   samples/moji_cp1252.txt             utf-8
@@ -198,6 +202,16 @@ level 1 (3 755 frequent simplified characters) or Big5 level 1 (5 495 frequent
 traditional characters) is used as a free, defensible "is this character in
 common use" test covering both scripts, giving 9 156 characters total.
 
+Japanese needs a different rule, because the byte ranges nest: every EUC-JP
+stream is also a valid GBK stream, and GBK reserves the very same 0xA4/0xA5
+rows for kana, so a Japanese file read as GBK keeps its kana and scores well.
+The tell is the kanji. JIS X 0208 level 1 is a frequency set of 2 965
+characters, and a Chinese reading of Japanese bytes lands outside it often
+enough to cost up to 30 points — measured against the ideographs only, since
+kana and punctuation say nothing about which language the kanji belong to.
+Testing against the full JIS repertoire instead does not work: it holds about
+7 000 ideographs and therefore most Chinese hanzi as well.
+
 ## How repair works
 
 Mojibake is a round trip that went through the wrong door: bytes were really
@@ -224,6 +238,7 @@ destroyed at that moment and no amount of search brings it back.
 | GBK | 21 791 | includes GB2312 and the GBK extension area |
 | Big5 | 13 710 | includes the HKSCS lead-byte range |
 | Shift_JIS | 6 879 | half-width katakana computed, not tabulated |
+| EUC-JP | 6 879 (+6 067 three-byte) | JIS X 0208 in the pair table, JIS X 0212 behind 0x8F |
 | EUC-KR | 8 225 | KS X 1001 |
 | UTF-8 / UTF-16LE / UTF-16BE / UTF-32LE / UTF-32BE | — | self-validating; BOM handled exactly |
 | ISO-8859-1 / windows-1252 | — | the 0x80–0x9F difference is modelled exactly |
@@ -237,9 +252,9 @@ free of third-party licence questions.
 ## Testing
 
 ```sh
-moon test                        # 48 unit tests
+moon test                        # 57 unit tests
 moon build --target js
-python scripts/e2e_check.py      # 192 cross-checks against CPython
+python scripts/e2e_check.py      # 240 cross-checks against CPython
 ```
 
 The end-to-end script encodes known text in every supported code page, decodes

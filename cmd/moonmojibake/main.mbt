@@ -97,7 +97,7 @@ fn load_input(options : Options) -> (String, Bytes)? {
 
 ///|
 fn version_line() -> String {
-  "moonmojibake 0.2.0"
+  "moonmojibake 0.3.0"
 }
 
 ///|
@@ -123,7 +123,7 @@ fn usage() -> String {
     "",
     "encodings:",
     "  utf-8, utf-16le, utf-16be, utf-32le, utf-32be,",
-    "  gbk, big5, shift_jis, euc-kr, latin1, windows-1252",
+    "  gbk, big5, shift_jis, euc-jp, euc-kr, latin1, windows-1252",
   ]
   let out = StringBuilder()
   let mut index = 0
