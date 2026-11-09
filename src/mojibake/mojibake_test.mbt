@@ -414,3 +414,20 @@ test "euc-jp parse aliases" {
   assert_true(Charset::parse("EUC_JP").unwrap() == Charset::EucJp)
   assert_true(Charset::parse("ujis").unwrap() == Charset::EucJp)
 }
+
+///|
+test "detect prefers euc-jp for japanese text" {
+  let bytes = encode("これは日本語のテキストです。", Charset::EucJp).unwrap()
+  let ranked = detect(bytes)
+  assert_eq(ranked[0].charset(), Charset::EucJp)
+  assert_eq(ranked[0].errors(), 0)
+}
+
+///|
+test "detect still prefers gbk for chinese text" {
+  // The guard added for EUC-JP keys on kana; Chinese text has none, so the
+  // nested byte ranges must keep resolving to GBK.
+  let bytes = encode("我们把这件事说清楚，然后开始写代码。", Charset::Gbk).unwrap()
+  let ranked = detect(bytes)
+  assert_eq(ranked[0].charset(), Charset::Gbk)
+}

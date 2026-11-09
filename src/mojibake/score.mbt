@@ -121,6 +121,7 @@ pub fn text_score(text : String, errors : Int) -> Int {
   let mut hangul = 0
   let mut neutral = 0
   let mut noise = 0
+  let mut rare_kanji = 0
   for ch in text {
     chars = chars + 1
     let codepoint = ch.to_int()
@@ -128,6 +129,9 @@ pub fn text_score(text : String, errors : Int) -> Int {
       ideographs = ideographs + 1
       if common_set[codepoint] {
         common = common + 1
+      }
+      if !jis_level1_set[codepoint] {
+        rare_kanji = rare_kanji + 1
       }
     } else if codepoint >= 0x3040 && codepoint <= 0x30FF {
       kana = kana + 1
@@ -206,6 +210,21 @@ pub fn text_score(text : String, errors : Int) -> Int {
   // ideographs or kana in quantity is a decoding accident, not a language.
   if hangul > 0 && (ideographs + kana) * 3 > scripted {
     score = score - 12
+  }
+  // Kana text carrying kanji that are not Japanese level-1 kanji is probably
+  // not Japanese — it is Japanese bytes read as a Chinese code page.  The byte
+  // ranges nest (EUC-JP's 0xA1..0xFE sits inside GBK's 0x81..0xFE with trail
+  // 0x40..0xFE), and GBK keeps the 0xA4/0xA5 kana block, so both readings stay
+  // clean and keep their kana; the kanji are the only place the difference
+  // shows.  The whole JIS repertoire is too generous to test against — it
+  // holds most Chinese hanzi as well — but level 1 is a frequency set, and a
+  // Chinese reading of Japanese bytes fails it almost every time.
+  if kana > 0 && rare_kanji > 0 {
+    let mut penalty = 30 * rare_kanji / ideographs
+    if penalty > 30 {
+      penalty = 30
+    }
+    score = score - penalty
   }
   if score < 0 {
     return 0

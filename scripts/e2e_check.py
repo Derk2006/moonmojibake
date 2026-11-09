@@ -32,6 +32,7 @@ CASES = [
     ("gbk", "gbk", "gbk"),
     ("big5", "big5", "big5"),
     ("shift_jis", "shift_jis", "shift_jis"),
+    ("euc_jp", "euc-jp", "euc-jp"),
     ("euc_kr", "euc-kr", "euc-kr"),
     ("cp1252", "windows-1252", None),
     ("latin1", "latin1", None),
@@ -52,6 +53,12 @@ SAMPLES = {
         "これは日本語のテキストです。文字コードの判定を試します。",
         "日本語の文章と、カタカナ、ひらがな、漢字。",
         "テスト用の文字列です。",
+    ],
+    "euc_jp": [
+        "これは日本語のテキストです。文字コードの判定を試します。",
+        "日本語の文章と、カタカナ、ひらがな、漢字。",
+        "ﾊﾝｶｸｶﾀｶﾅ と 全角カナ と 漢字。",
+        "三バイト形式（JIS X 0212）の丂を含む文。",
     ],
     "euc_kr": [
         "이것은 한국어 텍스트입니다. 문자 인코딩을 확인합니다.",
@@ -99,6 +106,26 @@ def random_bytes(rng, codec, count):
             except UnicodeDecodeError:
                 continue
             pool.append(pair)
+    if codec == "euc_jp":
+        # EUC-JP has two forms the generic pair loop cannot reach: half-width
+        # katakana behind 0x8E, and JIS X 0212 behind 0x8F.  Sampling only the
+        # two-byte range would leave the branches that took the longest to get
+        # right as the ones never exercised.
+        for tail in range(0xA1, 0xE0):
+            seq = bytes([0x8E, tail])
+            try:
+                seq.decode(codec)
+            except UnicodeDecodeError:
+                continue
+            pool.append(seq)
+        for second in range(0xA1, 0xFF):
+            for third in range(0xA1, 0xFF):
+                seq = bytes([0x8F, second, third])
+                try:
+                    seq.decode(codec)
+                except UnicodeDecodeError:
+                    continue
+                pool.append(seq)
     picked = [rng.choice(pool) for _ in range(count)]
     return b"".join(picked)
 
