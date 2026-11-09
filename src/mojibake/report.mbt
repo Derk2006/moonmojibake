@@ -73,6 +73,26 @@ fn preview(text : String, limit : Int) -> String {
 }
 
 ///|
+/// Join charset names for the ambiguity note: `gbk` / `gbk and euc-jp` /
+/// `gbk, big5 and euc-jp`.
+fn join_charsets(charsets : Array[Charset]) -> String {
+  let out = StringBuilder()
+  let mut index = 0
+  while index < charsets.length() {
+    if index > 0 {
+      if index + 1 == charsets.length() {
+        out.write_string(" and ")
+      } else {
+        out.write_string(", ")
+      }
+    }
+    out.write_string(charsets[index].name())
+    index = index + 1
+  }
+  out.to_string()
+}
+
+///|
 /// Render the ranked candidate table.
 pub fn render_detection(source : String, byte_count : Int, rows : Array[Detection]) -> String {
   let out = StringBuilder()
@@ -111,7 +131,18 @@ pub fn render_detection(source : String, byte_count : Int, rows : Array[Detectio
   out.write_string("%, score ")
   out.write_string(best.score.to_string())
   out.write_string(")\n")
-  if best.confidence < 30 {
+  if is_ambiguous(rows) && is_ascii_text(best.text) {
+    out.write_string(
+      "note: the input is pure ASCII, so every ASCII-compatible code page decodes it to the same text. The guess is a convention, not a finding.\n",
+    )
+  } else if is_ambiguous(rows) {
+    let candidates = ambiguous_candidates(rows)
+    out.write_string("note: ambiguous — ")
+    out.write_string(join_charsets(candidates))
+    out.write_string(
+      " decode these bytes to exactly the same text and score. Pass --from to choose one.\n",
+    )
+  } else if best.confidence < 30 {
     out.write_string(
       "note: the input is ambiguous. Plain ASCII decodes identically in every ASCII-compatible code page, so there is nothing to tell them apart.\n",
     )

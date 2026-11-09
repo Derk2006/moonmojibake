@@ -468,3 +468,73 @@ test "repair_auto accepts empty input" {
   assert_eq(fixed.text(), "")
   assert_true(!fixed.changed())
 }
+
+///|
+test "pure kana is ambiguous, not a confident gbk" {
+  // あいうえお in EUC-JP.  The same bytes are also valid GBK and land on the
+  // same five characters, so there is no evidence for either label.  Saying
+  // "gbk, 85% confident" here would be the kind of wrong answer a reviewer
+  // is right to reject; saying "tied" is the true answer.
+  let bytes = b"\xa4\xa2\xa4\xa4\xa4\xa6\xa4\xa8\xa4\xaa"
+  let ranked = detect(bytes)
+  assert_true(is_ambiguous(ranked))
+  assert_eq(ranked[0].confidence(), 0)
+  let tied = ambiguous_candidates(ranked)
+  assert_eq(tied.length(), 2)
+  assert_eq(tied[0].name(), "gbk")
+  assert_eq(tied[1].name(), "euc-jp")
+}
+
+///|
+test "kana with kanji is not ambiguous" {
+  let bytes = encode("これは日本語の文章です。", Charset::EucJp).unwrap()
+  let ranked = detect(bytes)
+  assert_true(!is_ambiguous(ranked))
+  assert_eq(ranked[0].charset(), Charset::EucJp)
+  assert_true(ranked[0].confidence() >= 85)
+}
+
+///|
+test "plain ascii is ambiguous in every code page" {
+  let ranked = detect(b"plain ascii")
+  assert_true(is_ambiguous(ranked))
+  assert_true(is_ascii_text(ranked[0].text()))
+  // UTF-16 and UTF-32 are still ranked, but their text is not the same, so
+  // they must not be offered as tied candidates.
+  assert_true(ambiguous_candidates(ranked).length() < ranked.length())
+}
+
+///|
+test "every charset name parses back to itself" {
+  for charset in Charset::all() {
+    assert_eq(Charset::parse(charset.name()), Some(charset))
+  }
+}
+
+///|
+test "charset parse accepts the aliases people actually type" {
+  let cases : Array[(String, Charset)] = [
+    ("UTF8", Charset::Utf8),
+    ("utf-16le", Charset::Utf16Le),
+    ("ucs-4le", Charset::Utf32Le),
+    ("ucs-4be", Charset::Utf32Be),
+    ("cp936", Charset::Gbk),
+    ("gb2312", Charset::Gbk),
+    ("gb18030", Charset::Gbk),
+    ("CP950", Charset::Big5),
+    ("big-5", Charset::Big5),
+    ("sjis", Charset::ShiftJis),
+    ("cp932", Charset::ShiftJis),
+    ("Shift_JIS", Charset::ShiftJis),
+    ("ujis", Charset::EucJp),
+    ("hp-ux-euc", Charset::EucJp),
+    ("ks-c-5601", Charset::EucKr),
+    ("iso-8859-1", Charset::Latin1),
+    ("win1252", Charset::Cp1252),
+  ]
+  for (name, expected) in cases {
+    assert_eq(Charset::parse(name), Some(expected))
+  }
+  assert_eq(Charset::parse("utf-9"), None)
+  assert_eq(Charset::parse(""), None)
+}

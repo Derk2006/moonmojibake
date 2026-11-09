@@ -192,6 +192,56 @@ pub fn Detection::confidence(self : Detection) -> Int {
 }
 
 ///|
+/// True when the runner-up is not a worse guess but the *same* guess: it
+/// decodes the bytes to byte-identical text and scores the same.
+///
+/// This is not a rare corner.  EUC-JP's kana live in rows 0xA4 and 0xA5 of
+/// JIS X 0208, and GBK keeps the same rows for the same characters, so a run
+/// of hiragana has one spelling that both code pages agree on.  Reporting the
+/// first of the two as "the" answer would be reporting a coin flip as a
+/// finding; callers that need one name can still take `rows[0]`, but a caller
+/// that reports confidence should say the input is ambiguous instead.
+pub fn is_ambiguous(rows : Array[Detection]) -> Bool {
+  if rows.length() < 2 {
+    return false
+  }
+  rows[0].score == rows[1].score && rows[0].text == rows[1].text
+}
+
+///|
+/// True when every character is below U+0080.  Such text carries no evidence
+/// about which ASCII-compatible code page produced it, because they all
+/// produce the same bytes and decode them back to the same string.
+pub fn is_ascii_text(text : String) -> Bool {
+  for ch in text {
+    if ch.to_int() >= 0x80 {
+      return false
+    }
+  }
+  true
+}
+
+///|
+/// Every candidate that is indistinguishable from the winner, in rank order.
+///
+/// The winner is always included, so the result has at least one entry for
+/// non-empty input.  An ASCII-only file returns every ASCII-compatible code
+/// page, which is the literal truth: nothing in the bytes prefers one.
+pub fn ambiguous_candidates(rows : Array[Detection]) -> Array[Charset] {
+  let out : Array[Charset] = []
+  if rows.length() == 0 {
+    return out
+  }
+  let top = rows[0]
+  for row in rows {
+    if row.score == top.score && row.text == top.text {
+      out.push(row.charset)
+    }
+  }
+  out
+}
+
+///|
 /// One re-encode/decode step in a repair chain.
 pub struct FixStep {
   wrong : Charset

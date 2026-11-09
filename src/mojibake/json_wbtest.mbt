@@ -21,10 +21,23 @@ test "detection json carries the winner and every candidate" {
 }
 
 ///|
+test "detection json reports a tie honestly" {
+  // あいうえお in EUC-JP: GBK reads the same bytes as the same characters.
+  let rows = detect(b"\xa4\xa2\xa4\xa4\xa4\xa6\xa4\xa8\xa4\xaa")
+  let text = detection_json("kana.txt", 10, rows)
+  assert_true(text.contains("\"ambiguous\":true"))
+  assert_true(text.contains("\"tied\":[\"gbk\",\"euc-jp\"]"))
+  assert_true(text.contains("\"confidence\":0"))
+}
+
+///|
 test "detection json is empty-safe" {
   let rows : Array[Detection] = []
   let text = detection_json("empty.txt", 0, rows)
-  assert_eq(text, "{\"source\":\"empty.txt\",\"bytes\":0,\"guess\":null,\"candidates\":[]}")
+  assert_eq(
+    text,
+    "{\"source\":\"empty.txt\",\"bytes\":0,\"guess\":null,\"ambiguous\":false,\"tied\":[],\"candidates\":[]}",
+  )
 }
 
 ///|

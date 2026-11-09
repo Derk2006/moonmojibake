@@ -74,14 +74,27 @@ pub fn detection_json(source : String, byte_count : Int, rows : Array[Detection]
   out.write_string(",\"bytes\":")
   out.write_string(byte_count.to_string())
   if rows.length() == 0 {
-    out.write_string(",\"guess\":null,\"candidates\":[]}")
+    out.write_string(",\"guess\":null,\"ambiguous\":false,\"tied\":[],\"candidates\":[]}")
     return out.to_string()
   }
   let best = rows[0]
+  let tied = ambiguous_candidates(rows)
   out.write_string(",\"guess\":")
   out.write_string(quoted(best.charset.name()))
   out.write_string(",\"confidence\":")
   out.write_string(best.confidence.to_string())
+  out.write_string(",\"ambiguous\":")
+  out.write_string(if is_ambiguous(rows) { "true" } else { "false" })
+  out.write_string(",\"tied\":[")
+  let mut tied_index = 0
+  while tied_index < tied.length() {
+    if tied_index > 0 {
+      out.write_string(",")
+    }
+    out.write_string(quoted(tied[tied_index].name()))
+    tied_index = tied_index + 1
+  }
+  out.write_string("]")
   out.write_string(",\"score\":")
   out.write_string(best.score.to_string())
   out.write_string(",\"errors\":")

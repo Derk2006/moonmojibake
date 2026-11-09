@@ -221,7 +221,11 @@ pub fn detect(bytes : Bytes) -> Array[Detection] {
     if top < 40 {
       confidence = confidence * top / 40
     }
-    if results[0].errors == 0 && exclusive_script(results[0].text) {
+    // A script tie-breaker can only raise confidence when it actually broke
+    // a tie.  A run of hiragana is "exclusively" Japanese and still decodes
+    // identically under GBK, so without the `top > second` guard this would
+    // report 85% confidence in a label that is a coin flip.
+    if results[0].errors == 0 && exclusive_script(results[0].text) && top > second {
       if confidence < 85 {
         confidence = 85
       }
