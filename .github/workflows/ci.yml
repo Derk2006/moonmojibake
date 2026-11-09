@@ -70,3 +70,20 @@ jobs:
           python -c "import json; d=json.load(open('/tmp/again.json')); assert d['changed']==0, d"
           # Every rewritten file must be readable as UTF-8, which is the whole point.
           python -c "import glob; [open(p, encoding='utf-8').read() for p in glob.glob('/tmp/tree/*')]"
+
+      - name: The UTF-8 gate fails when it should
+        run: |
+          CLI=_build/js/debug/build/cmd/moonmojibake/moonmojibake.js
+          mkdir -p /tmp/utf8only && cp samples/utf8.txt /tmp/utf8only/
+          node $CLI scan /tmp/utf8only --fail-if-not utf-8
+          set +e
+          node $CLI scan samples --fail-if-not utf-8 > /dev/null
+          tree_code=$?
+          node $CLI detect samples/gbk.txt --fail-if-not utf-8 > /dev/null
+          file_code=$?
+          node $CLI detect samples/utf8.txt --fail-if-not utf-8 > /dev/null
+          ok_code=$?
+          set -e
+          test "$tree_code" -eq 2
+          test "$file_code" -eq 2
+          test "$ok_code" -eq 0

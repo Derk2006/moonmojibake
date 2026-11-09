@@ -43,3 +43,10 @@ fn is_dir(_path : String) -> Bool {
     "directory scanning needs the js backend: build with `moon build --target js` and run with node",
   )
 }
+
+///|
+/// 非 js 后端没有进程退出码这一说（wasm 由宿主决定），这里只保证签名一致。
+/// 断言本身仍然有效：不符时命令行已经把原因打印出来了。
+fn set_exit_code(_code : Int) -> Unit {
+  ()
+}

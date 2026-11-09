@@ -158,13 +158,26 @@ fn json_quote(text : String) -> String {
 }
 
 ///|
-fn scan_json(dir : String, entries : Array[ScanEntry], counts : Array[Tally]) -> String {
+fn scan_json(
+  dir : String,
+  entries : Array[ScanEntry],
+  counts : Array[Tally],
+  assert_name : String?,
+  assert_ok : Bool,
+) -> String {
   let out = StringBuilder()
   out.write_char('{')
   out.write_string("\"dir\":")
   out.write_string(json_quote(dir))
   out.write_string(",\"files\":")
   out.write_string(entries.length().to_string())
+  out.write_string(",\"fail_if_not\":")
+  match assert_name {
+    Some(name) => out.write_string(json_quote(name))
+    None => out.write_string("null")
+  }
+  out.write_string(",\"assert_ok\":")
+  out.write_string(if assert_ok { "true" } else { "false" })
   out.write_string(",\"encodings\":[")
   let mut index = 0
   while index < counts.length() {

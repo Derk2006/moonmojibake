@@ -15,6 +15,7 @@ struct Options {
   mut to : String?
   mut use_stdin : Bool
   mut json : Bool
+  mut fail_if_not : String?
 }
 
 ///|
@@ -27,6 +28,7 @@ fn new_options() -> Options {
     to: None,
     use_stdin: false,
     json: false,
+    fail_if_not: None,
   }
 }
 
@@ -60,6 +62,9 @@ fn parse_options(args : Array[String], start : Int) -> Options {
     } else if arg == "--json" {
       options.json = true
       index = index + 1
+    } else if arg == "--fail-if-not" {
+      options.fail_if_not = option_value(args, index)
+      index = index + 2
     } else if arg == "-" || arg == "--stdin" {
       options.use_stdin = true
       index = index + 1
@@ -118,6 +123,7 @@ fn usage() -> String {
     "  --json          emit machine-readable JSON instead of a table",
     "  -r, --recursive descend into sub-directories (scan, fix)",
     "  --write         actually rewrite files (fix; default is a dry run)",
+    "  --fail-if-not X exit 2 when a file reads as anything but X (detect, scan)",
     "",
     "inputs:",
     "  <file>          read raw bytes from a file (js backend)",
@@ -151,6 +157,12 @@ fn cmd_detect(args : Array[String], start : Int) -> Unit {
     } else {
       println(@mojibake.render_detection(source, bytes.length(), rows))
     }
+    let actual = if rows.length() == 0 {
+      "empty"
+    } else {
+      rows[0].charset().name()
+    }
+    gate_single(options.fail_if_not, source, actual)
   }
 }
 
@@ -280,6 +292,7 @@ fn main {
     let mut dir = ""
     let mut want_json = false
     let mut recursive = false
+    let mut gate : String? = None
     let mut scan_index = start
     while scan_index < args.length() {
       let arg = args[scan_index]
@@ -287,6 +300,11 @@ fn main {
         want_json = true
       } else if arg == "-r" || arg == "--recursive" {
         recursive = true
+      } else if arg == "--fail-if-not" {
+        if scan_index + 1 < args.length() {
+          gate = Some(args[scan_index + 1])
+          scan_index = scan_index + 1
+        }
       } else if dir == "" {
         dir = trim_trailing_separator(arg)
       }
@@ -300,10 +318,23 @@ fn main {
       println("error: not a directory: \{dir}")
       return
     }
+    let wanted = match gate {
+      Some(name) =>
+        match canonical_charset(name) {
+          Some(canonical) => Some(canonical)
+          None => {
+            println("error: unknown encoding \{name}")
+            set_exit_code(1)
+            return
+          }
+        }
+      None => None
+    }
     let scan_files : Array[String] = []
     collect_files(dir, recursive, scan_files)
     let scan_entries : Array[ScanEntry] = []
     let scan_counts : Array[Tally] = []
+    let gate_misses : Array[String] = []
     for scan_path in scan_files {
       let data = read_file(scan_path)
       if data is Some(bytes) {
@@ -331,6 +362,13 @@ fn main {
               },
             )
             bump_count(scan_counts, name)
+            if wanted is Some(expected) {
+              if name != expected {
+                gate_misses.push(
+                  "error: \{scan_path} reads as \{name}, expected \{expected}",
+                )
+              }
+            }
           }
         }
       } else {
@@ -341,9 +379,18 @@ fn main {
       }
     }
     if want_json {
-      println(scan_json(dir, scan_entries, scan_counts))
+      println(
+        scan_json(dir, scan_entries, scan_counts, wanted, gate_misses.length() == 0),
+      )
     } else {
       println(render_scan(dir, scan_entries, scan_counts))
+      // 断言失败的原因放在表后面，JSON 模式下则靠 assert_ok 字段，不往 stdout 掺文本。
+      for message in gate_misses {
+        println(message)
+      }
+    }
+    if gate_misses.length() > 0 {
+      set_exit_code(EXIT_ASSERT)
     }
   } else if command == "--version" || command == "-V" || command == "version" {
     println(version_line())

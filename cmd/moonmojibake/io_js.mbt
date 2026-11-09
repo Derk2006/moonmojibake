@@ -22,6 +22,11 @@ extern "js" fn fs_list_dir(path : String) -> Array[String] =
 extern "js" fn fs_is_dir(path : String) -> Bool =
   "(p) => { try { return require('fs').statSync(p).isDirectory() } catch (e) { return false } }"
 
+// 设 process.exitCode 而不是调 process.exit()：进程正常返回时 Node 仍会把
+// 缓冲区刷完，管道下游不会拿到半行输出。
+extern "js" fn set_exit_code(code : Int) -> Unit =
+  "(c) => { process.exitCode = c }"
+
 ///|
 fn read_file(path : String) -> Bytes? {
   if fs_exists(path) {
