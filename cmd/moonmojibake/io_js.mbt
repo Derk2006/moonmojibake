@@ -30,8 +30,12 @@ extern "js" fn set_exit_code(code : Int) -> Unit =
   "(c) => { process.exitCode = c }"
 
 ///|
+/// Read a regular file.  A directory is not a file: `exists` is true for it,
+/// but `readFileSync` throws EISDIR, and an uncaught Node exception prints a
+/// stack trace and exits 1 — an error page, not an error message.  Answering
+/// `None` lets every caller take its own path to a clean diagnostic.
 fn read_file(path : String) -> Bytes? {
-  if fs_exists(path) {
+  if fs_exists(path) && !fs_is_dir(path) {
     Some(fs_read(path))
   } else {
     None

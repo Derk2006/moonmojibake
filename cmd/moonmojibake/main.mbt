@@ -16,6 +16,8 @@ struct Options {
   mut use_stdin : Bool
   mut json : Bool
   mut fail_if_not : String?
+  /// 第一个「写了但没给值」的选项，比如结尾孤零零的 `--from`。
+  mut bad_option : String?
 }
 
 ///|
@@ -29,6 +31,7 @@ fn new_options() -> Options {
     use_stdin: false,
     json: false,
     fail_if_not: None,
+    bad_option: None,
   }
 }
 
@@ -42,28 +45,44 @@ fn option_value(args : Array[String], index : Int) -> String? {
 }
 
 ///|
+/// Read a flag's value, remembering the flag when it is missing.
+///
+/// Returning `None` silently would make `--from` at the end of the command
+/// line look like "no encoding was given", and the tool would fall back to
+/// detection — a wrong answer where the user asked for a specific one.
+fn take_value(args : Array[String], index : Int, options : Options, flag : String) -> String? {
+  match option_value(args, index) {
+    Some(value) => Some(value)
+    None => {
+      options.bad_option = Some(flag)
+      None
+    }
+  }
+}
+
+///|
 fn parse_options(args : Array[String], start : Int) -> Options {
   let options = new_options()
   let mut index = start
   while index < args.length() {
     let arg = args[index]
     if arg == "--text" || arg == "-t" {
-      options.text = option_value(args, index)
+      options.text = take_value(args, index, options, arg)
       index = index + 2
     } else if arg == "--output" || arg == "-o" {
-      options.output = option_value(args, index)
+      options.output = take_value(args, index, options, arg)
       index = index + 2
     } else if arg == "--from" || arg == "-f" {
-      options.from = option_value(args, index)
+      options.from = take_value(args, index, options, arg)
       index = index + 2
     } else if arg == "--to" {
-      options.to = option_value(args, index)
+      options.to = take_value(args, index, options, arg)
       index = index + 2
     } else if arg == "--json" {
       options.json = true
       index = index + 1
     } else if arg == "--fail-if-not" {
-      options.fail_if_not = option_value(args, index)
+      options.fail_if_not = take_value(args, index, options, arg)
       index = index + 2
     } else if arg == "-" || arg == "--stdin" {
       options.use_stdin = true
@@ -76,6 +95,20 @@ fn parse_options(args : Array[String], start : Int) -> Options {
     }
   }
   options
+}
+
+///|
+/// Report a missing option value, if any.  Returns true when the caller
+/// should stop.
+fn reject_missing_value(options : Options) -> Bool {
+  match options.bad_option {
+    Some(flag) => {
+      println("error: \{flag} needs a value")
+      set_exit_code(EXIT_USAGE)
+      true
+    }
+    None => false
+  }
 }
 
 ///|
@@ -92,17 +125,19 @@ fn load_input(options : Options) -> (String, Bytes)? {
       Some(bytes) => return Some((path, bytes))
       None => {
         println("error: cannot read \{path}")
+        set_exit_code(EXIT_USAGE)
         return None
       }
     }
   }
   println("error: nothing to read; pass a file path, `--text \"...\"`, or `-` for stdin")
+  set_exit_code(EXIT_USAGE)
   None
 }
 
 ///|
 fn version_line() -> String {
-  "moonmojibake 0.4.0"
+  "moonmojibake 0.5.0"
 }
 
 ///|
@@ -149,6 +184,9 @@ fn usage() -> String {
 ///|
 fn cmd_detect(args : Array[String], start : Int) -> Unit {
   let options = parse_options(args, start)
+  if reject_missing_value(options) {
+    return
+  }
   let input = load_input(options)
   if input is Some((source, bytes)) {
     let rows = @mojibake.detect(bytes)
@@ -157,18 +195,16 @@ fn cmd_detect(args : Array[String], start : Int) -> Unit {
     } else {
       println(@mojibake.render_detection(source, bytes.length(), rows))
     }
-    let actual = if rows.length() == 0 {
-      "empty"
-    } else {
-      rows[0].charset().name()
-    }
-    gate_single(options.fail_if_not, source, actual)
+    gate_single(options.fail_if_not, source, rows)
   }
 }
 
 ///|
 fn cmd_repair(args : Array[String], start : Int) -> Unit {
   let options = parse_options(args, start)
+  if reject_missing_value(options) {
+    return
+  }
   let input = load_input(options)
   if input is Some((source, bytes)) {
     // 编码判定与修复搜索的顺序由库里的 repair_auto 决定，命令行不再重复一遍。
@@ -201,14 +237,40 @@ fn cmd_repair(args : Array[String], start : Int) -> Unit {
 ///|
 fn cmd_convert(args : Array[String], start : Int) -> Unit {
   let options = parse_options(args, start)
+  if reject_missing_value(options) {
+    return
+  }
   let input = load_input(options)
   if input is Some((source, bytes)) {
+    // `--text` carries Unicode already, so its bytes are always UTF-8.  Reading
+    // them as GBK would turn good text into mojibake and print it with a zero
+    // exit code, which is the worst possible answer: wrong and confident.
+    if options.text is Some(_) {
+      if options.from is Some(name) {
+        match @mojibake.Charset::parse(name) {
+          Some(charset) =>
+            if charset != @mojibake.Charset::Utf8 {
+              println(
+                "error: --text is always UTF-8; pass a file to read \{charset.name()} bytes",
+              )
+              set_exit_code(EXIT_USAGE)
+              return
+            }
+          None => {
+            println("error: unknown encoding \{name}")
+            set_exit_code(EXIT_USAGE)
+            return
+          }
+        }
+      }
+    }
     let from = match options.from {
       Some(name) =>
         match @mojibake.Charset::parse(name) {
           Some(charset) => Some(charset)
           None => {
             println("error: unknown encoding \{name}")
+            set_exit_code(EXIT_USAGE)
             None
           }
         }
@@ -220,6 +282,7 @@ fn cmd_convert(args : Array[String], start : Int) -> Unit {
           Some(charset) => Some(charset)
           None => {
             println("error: unknown encoding \{name}")
+            set_exit_code(EXIT_USAGE)
             None
           }
         }
@@ -236,7 +299,10 @@ fn cmd_convert(args : Array[String], start : Int) -> Unit {
                 "\{source}: \{source_charset.name()} -> \{target_charset.name()}, \{encoded.length()} bytes written to \{path}",
               )
             }
-            None => println("error: text cannot be represented in \{target_charset.name()}")
+            None => {
+              println("error: text cannot be represented in \{target_charset.name()}")
+              set_exit_code(EXIT_USAGE)
+            }
           }
         None => println(text)
       }
@@ -276,6 +342,7 @@ fn main {
   let command_index = find_command(args)
   if command_index < 0 {
     println(usage())
+    set_exit_code(EXIT_USAGE)
     return
   }
   let command = args[command_index]
@@ -312,10 +379,12 @@ fn main {
     }
     if dir == "" {
       println("error: scan needs a directory")
+      set_exit_code(EXIT_USAGE)
       return
     }
     if !is_dir(dir) {
       println("error: not a directory: \{dir}")
+      set_exit_code(EXIT_USAGE)
       return
     }
     let wanted = match gate {
@@ -324,7 +393,7 @@ fn main {
           Some(canonical) => Some(canonical)
           None => {
             println("error: unknown encoding \{name}")
-            set_exit_code(1)
+            set_exit_code(EXIT_USAGE)
             return
           }
         }
@@ -362,12 +431,25 @@ fn main {
               },
             )
             bump_count(scan_counts, name)
-            if wanted is Some(expected) {
-              if name != expected {
-                gate_misses.push(
-                  "error: \{scan_path} reads as \{name}, expected \{expected}",
-                )
+            match wanted {
+              Some(expected) => {
+                // A tie is not a miss: the tied readings produce identical
+                // text, so either name is a correct description of the file.
+                let mut matches = name == expected
+                if !matches {
+                  for candidate in @mojibake.ambiguous_candidates(rows) {
+                    if candidate.name() == expected {
+                      matches = true
+                    }
+                  }
+                }
+                if !matches {
+                  gate_misses.push(
+                    "error: \{scan_path} reads as \{name}, expected \{expected}",
+                  )
+                }
               }
+              None => ()
             }
           }
         }

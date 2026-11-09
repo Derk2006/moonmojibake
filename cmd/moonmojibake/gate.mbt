@@ -10,6 +10,15 @@
 const EXIT_ASSERT : Int = 2
 
 ///|
+/// 用法错误（读不到文件、编码名写错、参数缺值）的退出码。
+///
+/// 单独列出来是因为「命令写错了」和「仓库不合规」必须能分开：前者是调用
+/// 方的问题，后者是要修的代码。任何一条错误路径都必须返回非零，否则脚本
+/// 里的 `moonmojibake convert ...` 失败了也当成功，等于把错误值传给了下
+/// 一步。
+const EXIT_USAGE : Int = 1
+
+///|
 /// 把用户写的编码名归一化成规范名，别名（`UTF8`、`shift-jis`）也认。
 fn canonical_charset(name : String) -> String? {
   match @mojibake.Charset::parse(name) {
@@ -20,18 +29,39 @@ fn canonical_charset(name : String) -> String? {
 
 ///|
 /// 单文件断言：`expected` 为 None 时什么都不做。
-fn gate_single(expected : String?, source : String, actual : String) -> Unit {
+///
+/// 平局的候选都算通过：它们解码出的文本逐字相同，只是名字不同，把一个
+/// 纯假名文件判成「不是 gbk」只会让 CI 报一个修不了的错。
+fn gate_single(
+  expected : String?,
+  source : String,
+  rows : Array[@mojibake.Detection],
+) -> Unit {
   match expected {
     Some(name) =>
       match canonical_charset(name) {
-        Some(wanted) =>
-          if wanted != actual {
+        Some(wanted) => {
+          let actual = if rows.length() == 0 {
+            "empty"
+          } else {
+            rows[0].charset().name()
+          }
+          let mut accepted = actual == wanted
+          if !accepted {
+            for candidate in @mojibake.ambiguous_candidates(rows) {
+              if candidate.name() == wanted {
+                accepted = true
+              }
+            }
+          }
+          if !accepted {
             println("error: \{source} reads as \{actual}, expected \{wanted}")
             set_exit_code(EXIT_ASSERT)
           }
+        }
         None => {
           println("error: unknown encoding \{name}")
-          set_exit_code(1)
+          set_exit_code(EXIT_USAGE)
         }
       }
     None => ()

@@ -167,10 +167,12 @@ fn cmd_fix(args : Array[String], start : Int) -> Unit {
   }
   if dir == "" {
     println("error: fix needs a directory")
+    set_exit_code(EXIT_USAGE)
     return
   }
   if !is_dir(dir) {
     println("error: not a directory: \{dir}")
+    set_exit_code(EXIT_USAGE)
     return
   }
   let files : Array[String] = []
