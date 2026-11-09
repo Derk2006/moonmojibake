@@ -46,9 +46,11 @@ text that was already decoded wrongly.
 | Detection — Chinese/Japanese disambiguation | ✅ JIS X 0208 level-1 test on kana texts |
 | Repair — chained mojibake, up to 4 layers | ✅ returns the re-encode chain |
 | Repair — script guard | ✅ never swaps Chinese for Hangul or kana |
-| CLI — `detect` / `repair` / `convert` / `scan` | ✅ js backend (Node), library works on every backend |
+| CLI — `detect` / `repair` / `convert` / `scan` / `fix` | ✅ js backend (Node), library works on every backend |
+| CLI — `fix` over a tree | ✅ dry run by default, `--write` to apply, idempotent |
 | CLI — `--json` on every subcommand | ✅ stable field names, for pipelines |
-| Unit tests | ✅ 57 passing (`moon test`) |
+| CLI — `--fail-if-not` | ✅ exit 2, so CI can reject a non-UTF-8 tree |
+| Unit tests | ✅ 61 passing (`moon test`) |
 | Cross-check against CPython | ✅ 240/240 (`scripts/e2e_check.py`) |
 | Dependencies | ✅ MoonBit core only, zero FFI |
 | License | ✅ Apache-2.0 |
@@ -133,6 +135,39 @@ scan samples (8 files)
 Files that are not text at all are reported as `binary` rather than being
 force-decoded into nonsense, and `-r` recurses into subdirectories.
 
+`scan` only reports. `fix` is the other half — it converts the files it finds,
+and previews unless you say otherwise:
+
+```sh
+mm fix samples -r            # dry run: what would change
+mm fix samples -r --write    # actually rewrite them as UTF-8
+```
+
+```
+fix samples (recursive) (8 files, dry run)
+
+  path                                    read as       change
+  samples/big5.txt                        big5          transcode
+  samples/eucjp.txt                       euc-jp        transcode
+  samples/euckr.txt                       euc-kr        transcode
+  samples/gbk.txt                         gbk           transcode
+  samples/moji_cp1252.txt                 utf-8         repair: windows-1252 -> utf-8  45 -> 90
+  samples/moji_latin1.txt                 utf-8         repair: latin1 -> utf-8  40 -> 86
+  samples/sjis.txt                        shift_jis     transcode
+
+7 of 8 text files would change; nothing written. Re-run with --write to apply.
+```
+
+The three outcomes are labelled separately, because they are different things:
+a **transcode** re-reads bytes in another encoding, a **repair** peels mojibake
+off bytes that were already valid UTF-8, and both can apply to one file. Binary
+files are counted and left alone — a PNG passing through a text decoder produces
+replacement characters, and a repair that "succeeds" on one must not be allowed
+to touch it.
+
+A second run finds nothing to do, which is the property that makes this safe to
+put in a loop.
+
 `detect`, `repair` and `scan` all take `--json`, so the same answers compose
 with `jq` and the rest of a pipeline:
 
@@ -146,6 +181,28 @@ The last line is the one that earns its keep: point it at a repository and get
 back exactly the files whose encoding will bite you. The document shape is
 fixed (see [`docs/USAGE.md`](docs/USAGE.md#json-output)), so scripts can rely on
 it.
+
+### In CI
+
+Reports are for humans; a build needs a number. `--fail-if-not` turns the same
+walk into an assertion:
+
+```sh
+mm scan . -r --fail-if-not utf-8
+```
+
+```
+error: docs/legacy.txt reads as gbk, expected utf-8
+```
+
+Exit code is `2` when a file reads as anything else, `1` when the command itself
+was wrong (unknown encoding, missing directory), `0` when everything matches.
+Two different numbers, because "the repository is broken" and "your command line
+is broken" are not the same failure, and a script cannot tell them apart if both
+come back as `1`.
+
+`--json` carries the verdict as data too — `fail_if_not` and `assert_ok` sit at
+the top level of the `scan` object.
 
 ### As a library
 
@@ -252,7 +309,7 @@ free of third-party licence questions.
 ## Testing
 
 ```sh
-moon test                        # 57 unit tests
+moon test                        # 61 unit tests
 moon build --target js
 python scripts/e2e_check.py      # 240 cross-checks against CPython
 ```

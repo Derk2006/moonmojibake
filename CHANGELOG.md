@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.4.0 — 2026-11-09
+
+### Added
+
+- **`repair_auto(bytes)`** — reads bytes nobody labelled and returns the encoding
+  it settled on plus the repair result: UTF-8 when it decodes cleanly, detection
+  otherwise, then the same repair search as `repair`. The sequence previously
+  lived inline in `cmd_repair`, where no test could reach it. `AutoFix::changed()`
+  answers whether writing the result back would change anything.
+- **`mm fix <dir>`** — repairs a whole tree, which is the half `scan` was
+  missing. Dry run by default; `--write` applies. Each file is reported as
+  `transcode`, `repair: A -> B`, or both, and binary files are counted and left
+  alone. A second run finds nothing to change.
+- **`--fail-if-not <encoding>`** on `detect` and `scan` — turns the walk into an
+  assertion for CI. Exits `2` when a file reads as anything else, `1` when the
+  command itself was called wrong. `--json` carries `fail_if_not` and
+  `assert_ok`.
+- `--json` support for `fix`, and `fail_if_not` / `assert_ok` fields on `scan`.
+- CI steps for both: the dry-run → write → re-run sequence must be idempotent and
+  leave every file readable as UTF-8, and the gate must return `2` for `samples`
+  and `0` for a directory holding only UTF-8.
+
+### Changed
+
+- `cmd repair` now calls `repair_auto` instead of repeating the read-then-repair
+  sequence.
+- Unit tests 57 → 61.
+
 ## 0.3.0 — 2026-11-09
 
 ### Added

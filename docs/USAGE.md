@@ -100,10 +100,73 @@ useless.
 `scan` never modifies anything and never fails on an unreadable file — that file
 is counted as an error and skipped, so one bad path does not abort a tree walk.
 
+### `mm fix`
+
+```sh
+mm fix <dir>                  # this directory only; dry run
+mm fix <dir> -r               # recurse
+mm fix <dir> -r --write       # rewrite the files
+mm fix <dir> -r --json
+```
+
+The same walk as `scan`, but it converts instead of only reporting. Dry run is
+the default: the premise of the tool is that nobody knows what these files are,
+and rewriting a tree on a guess is not something a forgotten flag should cause.
+`--write` is the opt-in, and it writes UTF-8 bytes.
+
+```
+fix samples (recursive) (8 files, dry run)
+
+  path                                    read as       change
+  samples/big5.txt                        big5          transcode
+  samples/moji_latin1.txt                 utf-8         repair: latin1 -> utf-8  40 -> 86
+
+7 of 8 text files would change; nothing written. Re-run with --write to apply.
+```
+
+Three outcomes, labelled separately because they are different operations:
+
+| column | meaning |
+|---|---|
+| `transcode` | bytes were valid in another encoding; they are re-encoded as UTF-8 |
+| `repair: A -> B` | bytes were already UTF-8 but held mojibake; a layer is peeled off |
+| `transcode + A -> B` | both: the file was in another encoding *and* carried mojibake |
+
+Binary files are counted in the header and left untouched. A second run reports
+`no file needs changing`; CI asserts that, because a repair that is not a fixed
+point would rewrite the same file forever.
+
+File mode bits and line endings are not touched — this writes bytes, not text
+with a policy.
+
+### Exit codes
+
+| code | meaning |
+|---|---|
+| `0` | success; with `--fail-if-not`, every file matched |
+| `1` | the command was called wrong: unknown encoding, missing directory |
+| `2` | `--fail-if-not` did not hold |
+
+`--fail-if-not` makes the walk an assertion instead of a report:
+
+```sh
+mm scan . -r --fail-if-not utf-8
+mm detect samples/gbk.txt --fail-if-not utf-8
+```
+
+The encoding name goes through the same parser as `--from`, so `UTF8`, `cp936`
+and `shift-jis` are accepted and reported in canonical form. In text mode the
+mismatches are printed one per line after the table; in `--json` mode they stay
+out of stdout and the verdict is carried by `assert_ok`.
+
+Only `detect` and `scan` take this flag. `fix` does not: it already changes the
+files, and an assertion about what they were before would be a different
+question.
+
 ### `--json`
 
-`detect`, `repair` and `scan` accept `--json` and print one compact object per
-run. Field names are part of the interface.
+`detect`, `repair`, `scan` and `fix` accept `--json` and print one compact
+object per run. Field names are part of the interface.
 
 `detect`:
 
@@ -130,7 +193,7 @@ layers. `repaired` is false with an empty chain when nothing was found.
 `scan`:
 
 ```json
-{"dir":"samples","files":7,
+{"dir":"samples","files":8,"fail_if_not":"utf-8","assert_ok":false,
  "encodings":[{"charset":"utf-8","files":3}, ...],
  "entries":[{"path":"samples/gbk.txt","binary":false,
              "charset":"gbk","confidence":51}, ...]}
@@ -140,6 +203,23 @@ layers. `repaired` is false with an empty chain when nothing was found.
 `confidence` is present only for decoded files. Paths that cannot be read are
 reported as `unreadable` rather than aborting the walk, and empty files as
 `empty`.
+
+`fail_if_not` is `null` when no assertion was requested, and `assert_ok` is
+`true` in that case — an absent assertion has not failed.
+
+`fix`:
+
+```json
+{"dir":"samples","recursive":true,"write":false,"files":8,"binary":0,
+ "changed":7,"written":0,
+ "entries":[{"path":"samples/moji_latin1.txt","read_as":"utf-8",
+             "chain":"latin1 -> utf-8","repaired":true,
+             "score_before":40,"score_after":86}, ...]}
+```
+
+`changed` counts files that would be (or were) rewritten, `written` counts what
+actually happened — the two are equal only with `--write`. `chain` is empty for
+a pure transcode.
 
 ### Encodings accepted by `--from` / `--to`
 
