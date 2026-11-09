@@ -57,3 +57,16 @@ jobs:
           grep -q "guess: gbk" /tmp/detect.txt
           node $CLI repair samples/moji_latin1.txt | tee /tmp/repair.txt
           grep -q "latin1 -> utf-8" /tmp/repair.txt
+
+      - name: Tree repair is idempotent
+        run: |
+          CLI=_build/js/debug/build/cmd/moonmojibake/moonmojibake.js
+          cp -r samples /tmp/tree
+          node $CLI fix /tmp/tree --json > /tmp/dry.json
+          node $CLI fix /tmp/tree --write --json > /tmp/wet.json
+          node $CLI fix /tmp/tree --json > /tmp/again.json
+          python -c "import json; d=json.load(open('/tmp/dry.json')); assert d['changed']==7 and d['written']==0, d"
+          python -c "import json; d=json.load(open('/tmp/wet.json')); assert d['written']==d['changed']==7, d"
+          python -c "import json; d=json.load(open('/tmp/again.json')); assert d['changed']==0, d"
+          # Every rewritten file must be readable as UTF-8, which is the whole point.
+          python -c "import glob; [open(p, encoding='utf-8').read() for p in glob.glob('/tmp/tree/*')]"

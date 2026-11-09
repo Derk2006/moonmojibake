@@ -111,10 +111,13 @@ fn usage() -> String {
     "  moonmojibake repair  <file> [-o out] [--json]  undo mojibake layer by layer",
     "  moonmojibake convert <file> --from gbk --to utf-8 [-o out]",
     "  moonmojibake scan    <dir> [-r] [--json]  report the encoding of every file",
+    "  moonmojibake fix     <dir> [-r] [--write] [--json]",
+    "                                          rewrite non-UTF-8 / mojibake files",
     "  moonmojibake --version",
     "",
     "  --json          emit machine-readable JSON instead of a table",
-    "  -r, --recursive descend into sub-directories (scan)",
+    "  -r, --recursive descend into sub-directories (scan, fix)",
+    "  --write         actually rewrite files (fix; default is a dry run)",
     "",
     "inputs:",
     "  <file>          read raw bytes from a file (js backend)",
@@ -156,15 +159,8 @@ fn cmd_repair(args : Array[String], start : Int) -> Unit {
   let options = parse_options(args, start)
   let input = load_input(options)
   if input is Some((source, bytes)) {
-    // 乱码文本本身通常是合法的 UTF-8，先按 UTF-8 读；读不通再交给检测。
-    let probe = @mojibake.decode(bytes, @mojibake.Charset::Utf8)
-    let decoded = if probe.errors() == 0 {
-      probe
-    } else {
-      let charset = @mojibake.detect_charset_or(bytes, @mojibake.Charset::Utf8)
-      @mojibake.decode(bytes, charset)
-    }
-    let result = @mojibake.repair(decoded.text())
+    // 编码判定与修复搜索的顺序由库里的 repair_auto 决定，命令行不再重复一遍。
+    let result = @mojibake.repair_auto(bytes).result()
     match options.output {
       Some(path) => {
         write_text_file(path, result.text)
@@ -249,6 +245,7 @@ fn find_command(args : Array[String]) -> Int {
       arg == "repair" ||
       arg == "convert" ||
       arg == "scan" ||
+      arg == "fix" ||
       arg == "help" ||
       arg == "--help" ||
       arg == "-h" ||
@@ -277,6 +274,8 @@ fn main {
     cmd_repair(args, start)
   } else if command == "convert" {
     cmd_convert(args, start)
+  } else if command == "fix" {
+    cmd_fix(args, start)
   } else if command == "scan" {
     let mut dir = ""
     let mut want_json = false
