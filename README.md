@@ -3,6 +3,7 @@
 [![CI](https://github.com/Derk2006/moonmojibake/actions/workflows/ci.yml/badge.svg)](https://github.com/Derk2006/moonmojibake/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![MoonBit](https://img.shields.io/badge/MoonBit-zero%20FFI-purple.svg)](https://www.moonbitlang.com/)
+[![mooncakes](https://img.shields.io/badge/mooncakes-Derk2006%2Fmoonmojibake%400.5.0-blue)](https://mooncakes.io/docs/#/Derk2006/moonmojibake)
 
 **Given bytes with no declared encoding, work out what they are. Given text that
 is already ruined, work out how it was ruined and undo it.**
@@ -206,6 +207,35 @@ come back as `1`.
 
 `--json` carries the verdict as data too — `fail_if_not` and `assert_ok` sit at
 the top level of the `scan` object.
+
+### Install
+
+```sh
+moon add Derk2006/moonmojibake@0.5.0
+```
+
+That writes the module dependency into `moon.mod`. The alias belongs to the
+package, though, so one line goes in *your* `src/moon.pkg`, next to the code
+that uses it:
+
+```
+import {
+  "Derk2006/moonmojibake/src/mojibake" @mojibake,
+}
+```
+
+Then `@mojibake.detect(…)` resolves:
+
+```moonbit
+fn main {
+  let rows = @mojibake.detect(b"\xd6\xd0\xce\xc4")
+  println(rows[0].charset().name())   // gbk
+  println(rows[0].text())             // 中文
+}
+```
+
+The first `moon add` in a fresh checkout also pulls the registry index, which
+is large; later runs read it from `~/.moon/registry`.
 
 ### As a library
 
