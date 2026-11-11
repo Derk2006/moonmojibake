@@ -196,7 +196,7 @@ pub fn detect(bytes : Bytes) -> Array[Detection] {
       confidence: 0,
     })
   }
-  // Insertion sort: twelve candidates, and stability matters for tie-breaking.
+  // Insertion sort: every candidate, and stability matters for tie-breaking.
   let mut i = 1
   while i < results.length() {
     let item = results[i]
@@ -208,9 +208,28 @@ pub fn detect(bytes : Bytes) -> Array[Detection] {
     results[j + 1] = item
     i = i + 1
   }
-  if results.length() > 1 {
-    let top = results[0].score
-    let second = results[1].score
+  // GBK and GB18030 decode the same bytes to the same text whenever a file
+  // never leaves GBK's range, which is almost every Chinese file in existence.
+  // Without this pass every one of them would be reported as ambiguous, and
+  // "ambiguous" would stop meaning anything.  Dropping the wider reading is
+  // not a guess: the bytes carry no evidence of using its extra room.
+  let ranked : Array[Detection] = []
+  for row in results {
+    let mut shadowed = false
+    for other in results {
+      if other.charset != row.charset &&
+        other.text == row.text &&
+        other.charset.narrows(row.charset) {
+        shadowed = true
+      }
+    }
+    if !shadowed {
+      ranked.push(row)
+    }
+  }
+  if ranked.length() > 1 {
+    let top = ranked[0].score
+    let second = ranked[1].score
     let mut confidence = (top - second) * 3
     if confidence > 100 {
       confidence = 100
@@ -225,20 +244,20 @@ pub fn detect(bytes : Bytes) -> Array[Detection] {
     // a tie.  A run of hiragana is "exclusively" Japanese and still decodes
     // identically under GBK, so without the `top > second` guard this would
     // report 85% confidence in a label that is a coin flip.
-    if results[0].errors == 0 && exclusive_script(results[0].text) && top > second {
+    if ranked[0].errors == 0 && exclusive_script(ranked[0].text) && top > second {
       if confidence < 85 {
         confidence = 85
       }
     }
-    results[0] = {
-      charset: results[0].charset,
-      text: results[0].text,
+    ranked[0] = {
+      charset: ranked[0].charset,
+      text: ranked[0].text,
       score: top,
-      errors: results[0].errors,
+      errors: ranked[0].errors,
       confidence,
     }
   }
-  results
+  ranked
 }
 
 ///|
