@@ -24,12 +24,21 @@ let cp1252_high : Array[Int] = [
 /// consulted; what is left for it is the ordinary JIS X 0208 range.
 fn is_lead_byte(charset : Charset, byte : Int) -> Bool {
   match charset {
-    Charset::Gbk | Charset::Big5 => byte >= 0x81 && byte <= 0xFE
+    Charset::Gbk | Charset::Gb18030 | Charset::Big5 =>
+      byte >= 0x81 && byte <= 0xFE
     Charset::EucKr | Charset::EucJp => byte >= 0xA1 && byte <= 0xFE
     Charset::ShiftJis =>
       (byte >= 0x81 && byte <= 0x9F) || (byte >= 0xE0 && byte <= 0xEF)
     _ => false
   }
+}
+
+///|
+/// A second or fourth byte of a GB18030 four-byte sequence is always a digit.
+/// That is what makes the two forms distinguishable: the two-byte form never
+/// has a trail below 0x40.
+fn is_ascii_digit(byte : Int) -> Bool {
+  byte >= 0x30 && byte <= 0x39
 }
 
 ///|
@@ -79,6 +88,41 @@ fn decode_double_byte(bytes : Bytes, charset : Charset) -> Decoded {
         out.write_char(codepoint.unsafe_to_char())
         chars = chars + 1
         index = index + 3
+      } else {
+        out.write_char(replacement_char())
+        chars = chars + 1
+        errors = errors + 1
+        index = index + 1
+      }
+    } else if charset == Charset::Gb18030 &&
+      is_lead_byte(charset, byte) &&
+      index + 3 < length &&
+      is_ascii_digit(bytes[index + 1].to_int()) {
+      // Four-byte form: lead, digit, lead, digit.  The digit is what tells it
+      // apart from the two-byte form, whose trail starts at 0x40.
+      let second = bytes[index + 1].to_int()
+      let third = bytes[index + 2].to_int()
+      let fourth = bytes[index + 3].to_int()
+      if third >= 0x81 && third <= 0xFE && is_ascii_digit(fourth) {
+        let pointer = (byte - 0x81) * 12600 +
+          (second - 0x30) * 1260 +
+          (third - 0x81) * 10 +
+          (fourth - 0x30)
+        let codepoint = gb18030_ptr_codepoint(pointer)
+        if codepoint != 0 {
+          out.write_char(codepoint.unsafe_to_char())
+          chars = chars + 1
+          index = index + 4
+        } else {
+          // The four bytes had the right shape but point at a hole in the
+          // standard.  Consume all four and count one error: the shape is
+          // unambiguous, so resynchronising one byte at a time would only turn
+          // one bad sequence into three.
+          out.write_char(replacement_char())
+          chars = chars + 1
+          errors = errors + 1
+          index = index + 4
+        }
       } else {
         out.write_char(replacement_char())
         chars = chars + 1
@@ -248,6 +292,7 @@ pub fn decode(bytes : Bytes, charset : Charset) -> Decoded {
     Charset::Latin1 => decode_latin1(bytes)
     Charset::Cp1252 => decode_cp1252(bytes)
     Charset::Gbk
+    | Charset::Gb18030
     | Charset::Big5
     | Charset::ShiftJis
     | Charset::EucJp

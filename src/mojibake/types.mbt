@@ -7,6 +7,7 @@ pub(all) enum Charset {
   Utf32Le
   Utf32Be
   Gbk
+  Gb18030
   Big5
   ShiftJis
   EucJp
@@ -29,6 +30,7 @@ pub fn Charset::name(self : Charset) -> String {
     Charset::Utf32Le => "utf-32le"
     Charset::Utf32Be => "utf-32be"
     Charset::Gbk => "gbk"
+    Charset::Gb18030 => "gb18030"
     Charset::Big5 => "big5"
     Charset::ShiftJis => "shift_jis"
     Charset::EucJp => "euc-jp"
@@ -47,7 +49,7 @@ pub fn Charset::family(self : Charset) -> String {
     | Charset::Utf16Be
     | Charset::Utf32Le
     | Charset::Utf32Be => "Unicode"
-    Charset::Gbk | Charset::Big5 => "Chinese"
+    Charset::Gbk | Charset::Gb18030 | Charset::Big5 => "Chinese"
     Charset::ShiftJis | Charset::EucJp => "Japanese"
     Charset::EucKr => "Korean"
     Charset::Latin1 | Charset::Cp1252 => "Single-byte"
@@ -59,12 +61,26 @@ pub fn Charset::family(self : Charset) -> String {
 pub fn Charset::is_double_byte(self : Charset) -> Bool {
   match self {
     Charset::Gbk
+    | Charset::Gb18030
     | Charset::Big5
     | Charset::ShiftJis
     | Charset::EucJp
     | Charset::EucKr => true
     _ => false
   }
+}
+
+///|
+/// True when `self` accepts strictly less than `outer`: every byte sequence
+/// that reads as `self` also reads as `outer`, with the same text.
+///
+/// Only GBK and GB18030 are related this way among the supported pages.
+/// GB18030 keeps GBK's two-byte table byte for byte and adds four-byte
+/// sequences plus a block of private-use two-byte slots, so a file that never
+/// leaves GBK's range is not evidence of GB18030.  Detection uses this to
+/// avoid calling every Chinese file "ambiguous: gbk and gb18030".
+pub fn Charset::narrows(self : Charset, outer : Charset) -> Bool {
+  self == Charset::Gbk && outer == Charset::Gb18030
 }
 
 ///|
@@ -78,6 +94,7 @@ pub fn Charset::all() -> Array[Charset] {
   [
     Charset::Utf8,
     Charset::Gbk,
+    Charset::Gb18030,
     Charset::Big5,
     Charset::ShiftJis,
     Charset::EucKr,
@@ -112,6 +129,11 @@ fn ascii_lower(text : String) -> String {
 ///
 /// Accepts the aliases people actually type: `cp936` and `gb2312` for GBK,
 /// `sjis` for Shift_JIS, `iso-8859-1` for Latin-1, and so on.
+///
+/// `gb18030` used to be an alias for GBK here, which was wrong twice over: it
+/// promised a standard GBK cannot read, and it made `convert --to gb18030`
+/// fail on every character outside GBK.  The two are separate code pages; see
+/// `Charset::narrows` for how detection chooses between them.
 pub fn Charset::parse(name : String) -> Charset? {
   let key = ascii_lower(name)
   match key {
@@ -120,7 +142,8 @@ pub fn Charset::parse(name : String) -> Charset? {
     "utf-16be" | "utf16be" => Some(Charset::Utf16Be)
     "utf-32le" | "utf32le" | "ucs-4le" | "ucs4le" => Some(Charset::Utf32Le)
     "utf-32be" | "utf32be" | "ucs-4be" | "ucs4be" => Some(Charset::Utf32Be)
-    "gbk" | "cp936" | "gb2312" | "gb18030" => Some(Charset::Gbk)
+    "gbk" | "cp936" | "gb2312" => Some(Charset::Gbk)
+    "gb18030" | "gb-18030" | "cp54936" => Some(Charset::Gb18030)
     "big5" | "big-5" | "cp950" => Some(Charset::Big5)
     "shift-jis" | "shiftjis" | "sjis" | "cp932" => Some(Charset::ShiftJis)
     "euc-jp" | "eucjp" | "ujis" | "hp-ux-euc" => Some(Charset::EucJp)

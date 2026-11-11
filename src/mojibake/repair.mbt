@@ -72,6 +72,16 @@ fn encode_double_byte(text : String, charset : Charset) -> Bytes? {
       let pair = reverse[codepoint]
       buffer.write_byte((pair >> 8).to_byte())
       buffer.write_byte((pair & 0xFF).to_byte())
+    } else if charset == Charset::Gb18030 &&
+      gb18030_codepoint_ptr(codepoint) >= 0 {
+      // Everything GBK cannot spell, GB18030 spells in four bytes — including
+      // emoji and the rest of the supplementary planes, which is the whole
+      // reason `--to gb18030` has to be a real code page and not an alias.
+      let pointer = gb18030_codepoint_ptr(codepoint)
+      buffer.write_byte((pointer / 12600 + 0x81).to_byte())
+      buffer.write_byte(((pointer / 1260) % 10 + 0x30).to_byte())
+      buffer.write_byte(((pointer / 10) % 126 + 0x81).to_byte())
+      buffer.write_byte((pointer % 10 + 0x30).to_byte())
     } else if charset == Charset::EucJp &&
       codepoint < 0x10000 &&
       eucjp_0212_reverse[codepoint] != 0 {
@@ -126,6 +136,7 @@ pub fn encode(text : String, charset : Charset) -> Bytes? {
     Charset::Latin1 => encode_latin1(text)
     Charset::Cp1252 => encode_cp1252(text)
     Charset::Gbk
+    | Charset::Gb18030
     | Charset::Big5
     | Charset::ShiftJis
     | Charset::EucJp
@@ -142,6 +153,7 @@ fn repair_sources() -> Array[Charset] {
     Charset::Cp1252,
     Charset::Latin1,
     Charset::Gbk,
+    Charset::Gb18030,
     Charset::Big5,
     Charset::ShiftJis,
     Charset::EucJp,
@@ -158,6 +170,7 @@ fn repair_targets() -> Array[Charset] {
   [
     Charset::Utf8,
     Charset::Gbk,
+    Charset::Gb18030,
     Charset::Big5,
     Charset::ShiftJis,
     Charset::EucJp,
