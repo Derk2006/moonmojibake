@@ -5,7 +5,8 @@
 /// matters is that a *correct* decoding outranks a *wrong* one.  Five
 /// independent signals, each failing differently:
 ///
-///   * 30 points — the decode was clean (no replacement characters)
+///   * 30 points — the decode was clean (no replacement characters, and no
+///     private-use characters, which are a slot with no assigned meaning)
 ///   * 15 points — one script accounts for most of the text
 ///   * 35 points — the CJK characters are ones that ordinary prose uses
 ///   * 10 points — the text is printable
@@ -122,6 +123,7 @@ pub fn text_score(text : String, errors : Int) -> Int {
   let mut neutral = 0
   let mut noise = 0
   let mut rare_kanji = 0
+  let mut private_use = 0
   for ch in text {
     chars = chars + 1
     let codepoint = ch.to_int()
@@ -140,6 +142,9 @@ pub fn text_score(text : String, errors : Int) -> Int {
     } else if is_neutral_char(codepoint) {
       neutral = neutral + 1
     }
+    if codepoint >= 0xE000 && codepoint <= 0xF8FF {
+      private_use = private_use + 1
+    }
     if is_noise_char(codepoint) {
       noise = noise + 1
     }
@@ -150,11 +155,17 @@ pub fn text_score(text : String, errors : Int) -> Int {
     }
     return 50
   }
-  let clamped_errors = if errors > chars {
-    chars
-  } else {
-    errors
+  // A private-use mapping is a near miss, not a character: the code page has a
+  // slot there, but no standard assigns it a meaning, and a font cannot show
+  // one the reader is expected to know.  Counting it as an error is what keeps
+  // a page with a large private-use block from buying a clean decode.  GB18030
+  // has 2149 such two-byte slots, and without this they were enough to make a
+  // windows-1252 sentence look "cleaner" than the correct reading.
+  let mut effective_errors = errors + private_use
+  if effective_errors > chars {
+    effective_errors = chars
   }
+  let clamped_errors = effective_errors
   let clean_part = if clamped_errors == 0 {
     30
   } else {
