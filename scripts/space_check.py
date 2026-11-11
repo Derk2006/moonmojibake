@@ -34,6 +34,7 @@ SEP = b"\x00"
 # (python codec, moonbit name)
 CASES = [
     ("gbk", "gbk"),
+    ("gb18030", "gb18030"),
     ("big5", "big5"),
     ("shift_jis", "shift_jis"),
     ("euc_jp", "euc-jp"),
@@ -199,6 +200,116 @@ def check_encode(codec, name, limit=None):
     return failures, len(chars)
 
 
+# GB18030's four-byte form has its own pointer space: 126 leads x 10 digits x
+# 126 leads x 10 digits.  Pointers below the limit share the BMP with the
+# two-byte table and are mapped by a run table; from the limit upwards the
+# standard maps them arithmetically onto the supplementary planes.
+GB18030_BMP_PTR_LIMIT = 189000
+GB18030_MAX_PTR = 1237575
+
+
+def gb18030_ptr_bytes(pointer):
+    fourth = pointer % 10 + 0x30
+    pointer //= 10
+    third = pointer % 126 + 0x81
+    pointer //= 126
+    second = pointer % 10 + 0x30
+    pointer //= 10
+    return bytes([pointer + 0x81, second, third, fourth])
+
+
+def gb18030_four_byte():
+    """Sweep the four-byte space in both directions, without a per-item list.
+
+    A million pointers is too many to keep as tuples, and it does not have to
+    be: every sequence decodes to exactly one character, so the expected text
+    is just `payload.decode()` and the comparison is one string against
+    another.  The same text encoded back must reproduce the payload byte for
+    byte — which also proves the encoder picks the canonical spelling rather
+    than merely *a* spelling.
+    """
+    payload = bytearray()
+    for pointer in range(0, GB18030_BMP_PTR_LIMIT):
+        seq = gb18030_ptr_bytes(pointer)
+        try:
+            seq.decode("gb18030")
+        except UnicodeDecodeError:
+            # A hole in the run table: the standard leaves these pointers
+            # unmapped, and so must the implementation.
+            continue
+        payload += seq
+    for pointer in range(GB18030_BMP_PTR_LIMIT, GB18030_MAX_PTR + 1):
+        payload += gb18030_ptr_bytes(pointer)
+    payload = bytes(payload)
+    expected = payload.decode("gb18030")
+
+    checks = 0
+    failures = 0
+
+    path = os.path.join(ROOT, "_build", "_space4.bin")
+    with open(path, "wb") as fh:
+        fh.write(payload)
+    code, out, err = run(["convert", path, "--from", "gb18030"])
+    os.remove(path)
+    checks += 1
+    if code != 0:
+        print(f"FAIL gb18030 four-byte: exit {code} {err.decode('utf-8', 'replace')[:200]}")
+        return 1, checks
+    text = out.decode("utf-8", "replace")
+    if text.endswith("\n"):
+        text = text[:-1]
+    if text != expected:
+        failures += 1
+        print(f"FAIL gb18030 four-byte decode: {describe_difference(text, expected)}")
+
+    src = os.path.join(ROOT, "_build", "_space4_in.txt")
+    dst = os.path.join(ROOT, "_build", "_space4_out.bin")
+    with open(src, "w", encoding="utf-8", newline="") as fh:
+        fh.write(expected)
+    code, out, err = run(
+        ["convert", src, "--from", "utf-8", "--to", "gb18030", "-o", dst]
+    )
+    checks += 1
+    if code != 0 or not os.path.exists(dst):
+        print(f"FAIL gb18030 four-byte encode: exit {code} {err.decode('utf-8', 'replace')[:200]}")
+        for leftover in (src, dst):
+            if os.path.exists(leftover):
+                os.remove(leftover)
+        return 1, checks
+    with open(dst, "rb") as fh:
+        written = fh.read()
+    for leftover in (src, dst):
+        if os.path.exists(leftover):
+            os.remove(leftover)
+    if written != payload:
+        failures += 1
+        index = 0
+        while index < min(len(written), len(payload)) and written[index] == payload[index]:
+            index += 1
+        print(
+            f"FAIL gb18030 four-byte encode: {len(written)} bytes for "
+            f"{len(payload)} expected, first difference at byte {index} "
+            f"({written[index:index + 4].hex()} vs {payload[index:index + 4].hex()})"
+        )
+
+    # Each sequence is checked twice: decoded and encoded back.  Counting both
+    # keeps the total comparable with the pair sweeps, which also count a
+    # decode and an encode per sequence.
+    return failures, len(expected) * 2
+
+
+def describe_difference(got, expected):
+    index = 0
+    while index < min(len(got), len(expected)) and got[index] == expected[index]:
+        index += 1
+    if index == min(len(got), len(expected)):
+        return f"{len(got)} characters, expected {len(expected)}"
+    return (
+        f"first difference at character {index}: "
+        f"expected U+{ord(expected[index]):04X} got U+{ord(got[index]):04X}"
+    )
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -227,6 +338,15 @@ def main():
             total += count
             failures += bad
             print(f"{name:12} {count:6} sequences  {'ok' if bad == 0 else f'{bad} bad'}")
+
+        if codec == "gb18030":
+            bad, count = gb18030_four_byte()
+            total += count
+            failures += bad
+            print(
+                f"{'gb18030 4B':12} {count // 2:6} sequences  "
+                f"{'ok' if bad == 0 else f'{bad} bad'}"
+            )
 
         bad, count = check_encode(codec, name, args.limit)
         total += count

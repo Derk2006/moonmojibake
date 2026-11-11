@@ -520,7 +520,8 @@ test "charset parse accepts the aliases people actually type" {
     ("ucs-4be", Charset::Utf32Be),
     ("cp936", Charset::Gbk),
     ("gb2312", Charset::Gbk),
-    ("gb18030", Charset::Gbk),
+    ("gb18030", Charset::Gb18030),
+    ("gb-18030", Charset::Gb18030),
     ("CP950", Charset::Big5),
     ("big-5", Charset::Big5),
     ("sjis", Charset::ShiftJis),
@@ -537,4 +538,58 @@ test "charset parse accepts the aliases people actually type" {
   }
   assert_eq(Charset::parse("utf-9"), None)
   assert_eq(Charset::parse(""), None)
+}
+
+///|
+test "gb18030 decodes the four-byte form" {
+  // 龦 is a BMP character GBK has no slot for; 😀 lives outside the BMP, where
+  // the standard maps the pointer arithmetically instead of by table.
+  let bmp = decode(b"\x82\x35\x8f\x33", Charset::Gb18030)
+  assert_eq(bmp.text(), "龦")
+  assert_eq(bmp.errors(), 0)
+  let supplementary = decode(b"\x94\x39\xfc\x36", Charset::Gb18030)
+  assert_eq(supplementary.text(), "😀")
+  assert_eq(supplementary.errors(), 0)
+}
+
+///|
+test "gb18030 still reads the two-byte form GBK shares with it" {
+  let decoded = decode(b"\xd6\xd0\xce\xc4", Charset::Gb18030)
+  assert_eq(decoded.text(), "中文")
+  assert_eq(decoded.errors(), 0)
+}
+
+///|
+test "gb18030 round-trips text that gbk cannot encode" {
+  let text = "中文𠀀😀龦"
+  let encoded = encode(text, Charset::Gb18030).unwrap()
+  assert_eq(encoded.length(), 16)
+  assert_eq(decode(encoded, Charset::Gb18030).text(), text)
+  // The point of having a separate code page: GBK refuses this text instead of
+  // silently dropping the characters it cannot spell.
+  assert_true(encode(text, Charset::Gbk) is None)
+}
+
+///|
+test "gb18030 counts an unmapped four-byte pointer as one error" {
+  // The four-byte shape is right, the pointer is not: 0x84 0x31 0xA5 0x30 is
+  // above the BMP run table and below the supplementary plane.
+  let decoded = decode(b"\x84\x31\xa5\x30", Charset::Gb18030)
+  assert_eq(decoded.errors(), 1)
+  assert_eq(decoded.text(), "\u{FFFD}")
+}
+
+///|
+test "detection only claims gb18030 when the bytes use its extra room" {
+  let wide = encode("中文😀", Charset::Gb18030).unwrap()
+  assert_eq(detect(wide)[0].charset(), Charset::Gb18030)
+  // A file that never leaves GBK is reported as GBK.  Both readings are
+  // correct, but reporting the wide one — or calling this ambiguous — would
+  // tell the user nothing.
+  let narrow = encode("中文测试", Charset::Gbk).unwrap()
+  let rows = detect(narrow)
+  assert_eq(rows[0].charset(), Charset::Gbk)
+  for row in rows {
+    assert_true(row.charset() != Charset::Gb18030)
+  }
 }

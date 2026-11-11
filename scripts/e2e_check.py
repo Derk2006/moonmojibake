@@ -30,6 +30,7 @@ CLI = os.path.join(ROOT, "_build", "js", "debug", "build", "cmd", "moonmojibake"
 # two are checked on the decoded text instead of on the label.
 CASES = [
     ("gbk", "gbk", "gbk"),
+    ("gb18030", "gb18030", "gb18030"),
     ("big5", "big5", "big5"),
     ("shift_jis", "shift_jis", "shift_jis"),
     ("euc_jp", "euc-jp", "euc-jp"),
@@ -43,6 +44,14 @@ SAMPLES = {
         "我们把这件事说清楚，然后开始写代码。",
         "编码检测是这次项目的核心功能，欢迎试用。",
         "简体中文，标点符号，数字 12345。",
+    ],
+    # Every sample carries at least one four-byte character.  A GB18030 file
+    # that never leaves GBK's range is reported as GBK on purpose: the bytes
+    # hold no evidence of the wider page, and saying so would be noise.
+    "gb18030": [
+        "简体中文加表情 😀 与扩展区 𠀀。",
+        "生僻字 龦、𪚥，以及数字 12345。",
+        "GB18030 四字节形式：😀🀄𠀀。",
     ],
     "big5": [
         "我們把這件事說清楚，然後開始寫程式。",
@@ -95,6 +104,21 @@ def ensure_build():
     return result.returncode == 0 and os.path.exists(CLI)
 
 
+GB18030_BMP_LIMIT = 189000
+GB18030_MAX_PTR = 1237575
+
+
+def gb18030_ptr_bytes(pointer):
+    """Spell a four-byte pointer as the four bytes GB18030 defines."""
+    fourth = pointer % 10 + 0x30
+    pointer //= 10
+    third = pointer % 126 + 0x81
+    pointer //= 126
+    second = pointer % 10 + 0x30
+    pointer //= 10
+    return bytes([pointer + 0x81, second, third, fourth])
+
+
 def random_bytes(rng, codec, count):
     """Byte strings that are valid for `codec`, built from its own repertoire."""
     pool = []
@@ -126,6 +150,19 @@ def random_bytes(rng, codec, count):
                 except UnicodeDecodeError:
                     continue
                 pool.append(seq)
+    if codec == "gb18030":
+        # GB18030's four-byte form is the whole reason it is a separate code
+        # page, and the pair loop cannot reach it.  Sample it across both the
+        # BMP run table and the supplementary planes.
+        for pointer in range(0, GB18030_BMP_LIMIT, 977):
+            seq = gb18030_ptr_bytes(pointer)
+            try:
+                seq.decode(codec)
+            except UnicodeDecodeError:
+                continue
+            pool.append(seq)
+        for pointer in range(GB18030_BMP_LIMIT, GB18030_MAX_PTR + 1, 6571):
+            pool.append(gb18030_ptr_bytes(pointer))
     picked = [rng.choice(pool) for _ in range(count)]
     return b"".join(picked)
 
