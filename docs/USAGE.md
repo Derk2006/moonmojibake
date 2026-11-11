@@ -257,7 +257,8 @@ a pure transcode.
 | `utf-16be` | `utf16be` |
 | `utf-32le` | `utf32le`, `ucs-4le`, `ucs4le` |
 | `utf-32be` | `utf32be`, `ucs-4be`, `ucs4be` |
-| `gbk` | `cp936`, `gb2312`, `gb18030` |
+| `gbk` | `cp936`, `gb2312` |
+| `gb18030` | `gb-18030`, `cp54936` |
 | `big5` | `big-5`, `cp950` |
 | `shift_jis` | `shift-jis`, `shiftjis`, `sjis`, `cp932` |
 | `euc-jp` | `eucjp`, `ujis`, `hp-ux-euc` |
@@ -266,6 +267,11 @@ a pure transcode.
 | `windows-1252` | `cp1252`, `win1252` |
 
 Matching ignores ASCII case and treats `_` as `-`.
+
+`gb18030` used to be listed as an alias of `gbk`, which was wrong in both
+directions: GBK cannot read a four-byte sequence, and `--to gb18030` used to
+reject any character GBK does not have. The two are separate pages now; the
+four-byte form reaches all of Unicode, so `--to gb18030` never fails on text.
 
 ## Library
 
@@ -358,13 +364,19 @@ charset.family()                       // "Chinese"
 charset.is_double_byte()               // Bool
 ```
 
-`all()` returns twelve entries, in this order — the order is the tie-break, so
+`all()` returns thirteen entries, in this order — the order is the tie-break, so
 plain ASCII resolves to UTF-8:
 
 ```
-utf-8, gbk, big5, shift_jis, euc-kr, euc-jp, windows-1252, latin1,
+utf-8, gbk, gb18030, big5, shift_jis, euc-kr, euc-jp, windows-1252, latin1,
 utf-16le, utf-16be, utf-32le, utf-32be
 ```
+
+`detect` drops a candidate whose text is byte-identical to a narrower page's
+and whose byte range contains that page's: GB18030 inherits GBK's two-byte
+table, so every GBK file also reads cleanly as GB18030. Reporting that as a tie
+would make "ambiguous" the normal answer for Chinese text, so the wider page is
+only ranked when the bytes actually reach outside GBK.
 
 ### Report rendering
 
@@ -380,9 +392,9 @@ line-oriented printer.
 
 ```sh
 moon test
-python scripts/e2e_check.py            # needs the js build; 257 checks
+python scripts/e2e_check.py            # needs the js build; 303 checks
 python scripts/e2e_check.py --rounds 200
-python scripts/space_check.py          # 127 287 checks, both directions
+python scripts/space_check.py          # 2 351 159 checks, both directions
 ```
 
 `e2e_check.py` samples: real sentences plus random valid pairs, and a set of

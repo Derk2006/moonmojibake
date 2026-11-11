@@ -3,7 +3,7 @@
 [![CI](https://github.com/Derk2006/moonmojibake/actions/workflows/ci.yml/badge.svg)](https://github.com/Derk2006/moonmojibake/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![MoonBit](https://img.shields.io/badge/MoonBit-zero%20FFI-purple.svg)](https://www.moonbitlang.com/)
-[![mooncakes](https://img.shields.io/badge/mooncakes-Derk2006%2Fmoonmojibake%400.5.0-blue)](https://mooncakes.io/docs/#/Derk2006/moonmojibake)
+[![mooncakes](https://img.shields.io/badge/mooncakes-Derk2006%2Fmoonmojibake%400.6.0-blue)](https://mooncakes.io/docs/#/Derk2006/moonmojibake)
 
 **Given bytes with no declared encoding, work out what they are. Given text that
 is already ruined, work out how it was ruined and undo it.**
@@ -40,12 +40,14 @@ text that was already decoded wrongly.
 
 | Area | State |
 |---|---|
-| Code pages — GBK, Big5, Shift_JIS, EUC-JP, EUC-KR | ✅ 63 551 two-byte mappings, generated from CPython codecs |
-| Code pages — EUC-JP three-byte form (JIS X 0212) | ✅ 6 067 mappings in their own 94×94 table |
+| Code pages — GBK, GB18030, Big5, Shift_JIS, EUC-KR | ✅ 74 545 two-byte mappings, generated from CPython codecs |
+| Code pages — EUC-JP | ✅ 6 879 two-byte + 6 067 JIS X 0212 cells in a 94×94 table |
+| Code pages — GB18030 four-byte form | ✅ 1 087 996 sequences: BMP run table + arithmetic supplementary planes |
 | Code pages — UTF-8, UTF-16LE/BE, UTF-32LE/BE, Latin-1, windows-1252 | ✅ |
-| Detection — ranking, confidence, BOM handling | ✅ 12 candidates per call |
+| Detection — ranking, confidence, BOM handling | ✅ up to 13 candidates per call |
 | Detection — Chinese/Japanese disambiguation | ✅ JIS X 0208 level-1 test on kana texts |
 | Detection — ties | ✅ reported as ties (`ambiguous`, `tied`), never as a confident guess |
+| Detection — nested code pages | ✅ a file that never leaves GBK is reported as GBK, not GB18030 |
 | Repair — chained mojibake, up to 4 layers | ✅ returns the re-encode chain |
 | Repair — script guard | ✅ never swaps Chinese for Hangul or kana |
 | CLI — `detect` / `repair` / `convert` / `scan` / `fix` | ✅ js backend (Node), library works on every backend |
@@ -53,9 +55,9 @@ text that was already decoded wrongly.
 | CLI — `--json` on every subcommand | ✅ stable field names, for pipelines |
 | CLI — `--fail-if-not` | ✅ exit 2, so CI can reject a non-UTF-8 tree |
 | CLI — exit codes | ✅ 0 success, 1 usage/IO error, 2 assertion failed |
-| Unit tests | ✅ 67 passing (`moon test`) |
-| Cross-check against CPython | ✅ 257/257 (`scripts/e2e_check.py`) |
-| Exhaustive byte-space check | ✅ 127 287/127 287, both directions (`scripts/space_check.py`) |
+| Unit tests | ✅ 72 passing (`moon test`) |
+| Cross-check against CPython | ✅ 303/303 (`scripts/e2e_check.py`) |
+| Exhaustive byte-space check | ✅ 2 351 159/2 351 159, both directions (`scripts/space_check.py`) |
 | Dependencies | ✅ MoonBit core only, zero FFI |
 | License | ✅ Apache-2.0 |
 
@@ -88,8 +90,9 @@ guess: gbk  (confidence 51%, score 86)
 ```
 
 Every candidate is shown, including the ones that lost badly, because the
-ranking is the evidence: twelve readings, one of which is text and eleven of
-which are not.
+ranking is the evidence: a dozen readings, one of which is text and the rest of
+which are not.  GB18030 is not in this list — the file never leaves GBK's
+range, so the wider page is dropped rather than reported as a tie.
 
 ```sh
 mm repair samples/moji_latin1.txt
@@ -326,6 +329,7 @@ destroyed at that moment and no amount of search brings it back.
 | Code page | Two-byte mappings | Notes |
 |---|---|---|
 | GBK | 21 791 | includes GB2312 and the GBK extension area |
+| GB18030 | 23 940 two-byte + 1 087 996 four-byte | GBK's table plus 2 149 private-use slots; the four-byte form reaches all of Unicode |
 | Big5 | 13 710 | includes the HKSCS lead-byte range |
 | Shift_JIS | 6 879 | half-width katakana computed, not tabulated |
 | EUC-JP | 6 879 (+6 067 three-byte) | JIS X 0208 in the pair table, JIS X 0212 behind 0x8F |
@@ -342,24 +346,26 @@ free of third-party licence questions.
 ## Testing
 
 ```sh
-moon test                        # 67 unit tests
+moon test                        # 72 unit tests
 moon build --target js
-python scripts/e2e_check.py      # 257 cross-checks against CPython
-python scripts/space_check.py    # 127 287 exhaustive checks, both directions
+python scripts/e2e_check.py      # 303 cross-checks against CPython
+python scripts/space_check.py    # 2 351 159 exhaustive checks, both directions
 ```
 
 The end-to-end script encodes known text in every supported code page, decodes
 it back through the MoonBit implementation, and compares byte-for-byte with
 CPython — plus a randomised fuzz pass over valid byte pairs for the five
-double-byte pages, and a set of CLI contract checks (a failed command must
-exit non-zero, and a directory is not a file).
+double-byte pages (and four-byte sequences for GB18030), and a set of CLI
+contract checks (a failed command must exit non-zero, and a directory is not a
+file).
 
 The exhaustive script does not sample. It walks every lead/trail pair CPython
-accepts for GBK, Big5, Shift_JIS and EUC-KR, every JIS X 0212 cell and every
-half-width katakana spelling for EUC-JP, and checks both directions: what the
-bytes decode to, and what each character encodes back to. That is the check
-that answers "is any row of the table missing or pointing at the wrong
-character" instead of "does the sample happen to pass".
+accepts for GBK, GB18030, Big5, Shift_JIS and EUC-KR, every JIS X 0212 cell and
+every half-width katakana spelling for EUC-JP, and *every* four-byte pointer
+GB18030 defines — all 1 087 996 of them, from U+0080 to U+10FFFF. It checks
+both directions: what the bytes decode to, and what each character encodes back
+to. That is the check that answers "is any row of the table missing or pointing
+at the wrong character" instead of "does the sample happen to pass".
 
 ---
 
@@ -368,6 +374,10 @@ character" instead of "does the sample happen to pass".
 - The CLI reads and writes files only on the js backend; on other backends the
   library still works, and `--text` still runs, but file IO is not available.
   MoonBit core has no portable filesystem API.
+- GB18030's bytes are a superset of GBK's, so a file that never leaves GBK is
+  reported as GBK. Both names decode it to the same text; the wider one is
+  only claimed when the file actually uses a four-byte sequence. `--from
+  gb18030` still reads it correctly.
 - Some byte strings are genuinely ambiguous, and the tool says so rather than
   guessing. A kana-only EUC-JP file lives in the JIS X 0208 rows that GBK keeps
   for the same characters, so both names decode it to identical text; `detect`

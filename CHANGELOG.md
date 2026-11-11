@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.6.0 — 2026-11-11
+
+`gb18030` was listed as an alias of `gbk`. It is not one: GB18030 defines a
+four-byte form that reaches every code point in Unicode, and GBK has no idea
+what those bytes are. The alias promised a standard the decoder did not
+implement, and `--to gb18030` refused every character GBK lacks — an emoji, a
+rare hanzi, a CJK extension character. That is the same class of problem as a
+documented feature that returns the wrong answer, so it is fixed here rather
+than documented as a limit.
+
+### Added
+
+- **GB18030's four-byte form, both directions.** 1 087 996 sequences: the BMP
+  is a 206-run table generated from CPython by decoding, and the supplementary
+  planes are the arithmetic the standard specifies. `--to gb18030` now encodes
+  any text at all, including characters outside the BMP.
+- **`Charset::Gb18030`**, a real code page rather than an alias: its own
+  two-byte table (GBK's, plus 2 149 private-use slots), its own reverse index,
+  and the four-byte branch in both directions.
+- **Exhaustive check of the four-byte space.** `space_check.py` walks every
+  pointer the standard maps, decodes it through MoonBit, encodes it back, and
+  compares both directions with CPython. The suite went from 127 287 checks to
+  2 351 159.
+- **Six new unit tests**: the four-byte form, the shared two-byte form, a round
+  trip of text GBK cannot encode, an unmapped pointer, and the detection rule
+  below.
+
+### Fixed
+
+- **A private-use character no longer buys a clean decode.** GB18030's 2 149
+  private-use slots let it consume a byte pair GBK rejects, which earned the
+  full "no errors" bonus. A windows-1252 sentence then scored 53 as GB18030
+  against 52 as windows-1252 — the wrong page won by one point. Such a
+  character now counts as a near miss, the same as an undecodable sequence.
+- **GBK is reported for files that never leave GBK.** Without a rule, every
+  Chinese file would be `ambiguous — gbk and gb18030`, since GB18030 decodes all
+  of it to the same text. A wider page is now dropped when a narrower one
+  produces byte-identical text, and only then.
+
 ## 0.5.0 — 2026-11-09
 
 This release is about the answers a tool gives when it cannot give a good one.
