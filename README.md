@@ -3,7 +3,7 @@
 [![CI](https://github.com/Derk2006/moonmojibake/actions/workflows/ci.yml/badge.svg)](https://github.com/Derk2006/moonmojibake/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![MoonBit](https://img.shields.io/badge/MoonBit-zero%20FFI-purple.svg)](https://www.moonbitlang.com/)
-[![mooncakes](https://img.shields.io/badge/mooncakes-Derk2006%2Fmoonmojibake%400.6.0-blue)](https://mooncakes.io/docs/#/Derk2006/moonmojibake)
+[![mooncakes](https://img.shields.io/badge/mooncakes-Derk2006%2Fmoonmojibake%400.6.1-blue)](https://mooncakes.io/docs/#/Derk2006/moonmojibake)
 
 **Given bytes with no declared encoding, work out what they are. Given text that
 is already ruined, work out how it was ruined and undo it.**
@@ -34,6 +34,18 @@ be told apart, so double-byte text defaults to GBK. MoonMojibake returns ranked
 candidates with confidence behind them, covers Japanese and Korean, and repairs
 text that was already decoded wrongly.
 
+## Scope
+
+MoonMojibake is a character-encoding toolkit: encoding detection, mojibake
+repair, and transcoding across the thirteen code pages listed above. Its
+input and output are plain text in those encodings.
+
+It is **not** a messaging or cryptography library. It does not implement
+COSE, CBOR, or RFC 9052, does not parse or produce CBOR-encoded messages,
+and does not sign, verify, or encrypt anything. There is no "deterministic
+CBOR" acceptance filter here — the only determinism this project promises is
+that the same bytes always decode to the same text.
+
 ---
 
 ## Status
@@ -59,6 +71,7 @@ text that was already decoded wrongly.
 | Cross-check against CPython | ✅ 303/303 (`scripts/e2e_check.py`) |
 | Exhaustive byte-space check | ✅ 2 351 159/2 351 159, both directions (`scripts/space_check.py`) |
 | Dependencies | ✅ MoonBit core only, zero FFI |
+| Toolchain | ✅ `moon 0.1.20261104` / `moonc v0.10.20+65efd5b93`, `moon check --deny-warn` clean |
 | License | ✅ Apache-2.0 |
 
 ---
@@ -214,7 +227,7 @@ the top level of the `scan` object.
 ### Install
 
 ```sh
-moon add Derk2006/moonmojibake@0.5.0
+moon add Derk2006/moonmojibake@0.6.1
 ```
 
 That writes the module dependency into `moon.mod`. The alias belongs to the

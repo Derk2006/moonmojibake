@@ -1,5 +1,10 @@
 # Usage
 
+**Scope:** MoonMojibake handles character encodings only — detection, repair,
+and transcoding across the thirteen code pages documented here. It does not
+implement COSE, CBOR, or RFC 9052, and it neither parses nor produces
+CBOR-encoded messages; its inputs and outputs are plain text.
+
 ## Command line
 
 The CLI needs Node, because MoonBit core has no portable filesystem API.
