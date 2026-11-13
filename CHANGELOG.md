@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.6.1 — 2026-11-13
+
+Maintenance release. Two things happened this week: a review note attached to
+this project described it as a COSE implementation whose acceptance range is
+limited to deterministic CBOR messages (RFC 9052) — that describes a different
+project entirely, MoonMojibake has never contained any COSE or CBOR code — and
+the MoonBit toolchain deprecated two syntaxes this codebase still used.
+
+### Added
+
+- **`Scope` section in the README**: what the project is (character-encoding
+  detection, repair, transcoding) and what it is not (no COSE, no CBOR, no
+  RFC 9052, no message signing or encryption; inputs and outputs are plain
+  text in the thirteen code pages it supports).
+- **Scope statement at the top of `docs/USAGE.md`**, same boundary in one
+  paragraph.
+
+### Changed
+
+- **Toolchain migration to `moon 0.1.20261104` / `moonc v0.10.20+65efd5b93`,
+  verified with `moon check --deny-warn` (zero warnings).**
+  - `} derive(Eq, Debug)` on `Charset` became `#derive(Eq, Debug)` before the
+    declaration (E0027: the trailing `derive(...)` syntax is deprecated).
+  - Trait implementations are no longer implicitly promoted to regular
+    methods (E0079): three explicit `pub extend Charset with ...` declarations
+    re-export `Eq::{equal, not_equal}`, `Debug::to_repr` and
+    `Show::{to_string, output}`, so `==`, `!=`, `str(...)` and `to_repr` on
+    `Charset` keep working exactly as before.
+  - Blackbox tests no longer get an implicit import of the package under
+    test: all 245 unqualified references in `mojibake_test.mbt` are now
+    written `@mojibake.decode`, `@mojibake.Charset`, and so on.
+- **CI tightened**: type check now runs with `--deny-warn` (a warning fails
+  the build), and the wasm backend is built alongside js and wasm-gc.
+
+### Verified
+
+- `moon check --deny-warn`: clean, zero warnings.
+- 72 unit tests pass on all four targets (default, js, wasm, wasm-gc).
+- CLI smoke test on the js build: `detect --text "中文测试 😀"` reports utf-8,
+  confidence 100, as before.
+
 ## 0.6.0 — 2026-11-11
 
 `gb18030` was listed as an alias of `gbk`. It is not one: GB18030 defines a

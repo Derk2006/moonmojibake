@@ -1,0 +1,136 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "Derk2006/moonmojibake/src/mojibake"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn ambiguous_candidates(Array[Detection]) -> Array[Charset]
+
+pub fn decode(Bytes, Charset) -> Decoded
+
+pub fn decode_text(Bytes, Charset) -> String
+
+pub fn detect(Bytes) -> Array[Detection]
+
+pub fn detect_charset(Bytes) -> Charset?
+
+pub fn detect_charset_or(Bytes, Charset) -> Charset
+
+pub fn detect_text(Bytes) -> String
+
+pub fn detection_json(String, Int32, Array[Detection]) -> String
+
+pub fn encode(String, Charset) -> Bytes?
+
+pub fn fix_json(String, FixResult) -> String
+
+pub fn is_ambiguous(Array[Detection]) -> Bool
+
+pub fn is_ascii_text(String) -> Bool
+
+pub fn json_escape(String) -> String
+
+pub fn looks_binary(Bytes) -> Bool
+
+pub fn render_chain(FixResult) -> String
+
+pub fn render_detection(String, Int32, Array[Detection]) -> String
+
+pub fn render_fix(FixResult) -> String
+
+pub fn repair(String) -> FixResult
+
+pub fn repair_auto(Bytes) -> AutoFix
+
+pub fn score_decoded(Decoded) -> Int32
+
+pub fn text_score(String, Int32) -> Int32
+
+pub fn was_repaired(FixResult) -> Bool
+
+// Errors
+
+// Types and methods
+pub struct AutoFix {
+  charset : Charset
+  result : FixResult
+}
+pub fn AutoFix::changed(Self) -> Bool
+pub fn AutoFix::charset(Self) -> Charset
+pub fn AutoFix::result(Self) -> FixResult
+pub fn AutoFix::text(Self) -> String
+
+#derive(Eq, @debug.Debug)
+pub(all) enum Charset {
+  Utf8
+  Utf16Le
+  Utf16Be
+  Utf32Le
+  Utf32Be
+  Gbk
+  Gb18030
+  Big5
+  ShiftJis
+  EucJp
+  EucKr
+  Latin1
+  Cp1252
+}
+pub fn Charset::all() -> Array[Self]
+pub fn Charset::equal(Self, Self) -> Bool
+pub fn Charset::family(Self) -> String
+pub fn Charset::is_double_byte(Self) -> Bool
+pub fn Charset::name(Self) -> String
+pub fn Charset::narrows(Self, Self) -> Bool
+pub fn Charset::not_equal(Self, Self) -> Bool
+pub fn Charset::output(Self, &Logger) -> Unit
+pub fn Charset::parse(String) -> Self?
+pub fn Charset::to_repr(Self) -> @debug.Repr
+pub fn Charset::to_string(Self) -> String
+pub impl Show for Charset
+
+pub struct Decoded {
+  text : String
+  errors : Int32
+  chars : Int32
+}
+pub fn Decoded::chars(Self) -> Int32
+pub fn Decoded::errors(Self) -> Int32
+pub fn Decoded::text(Self) -> String
+
+pub struct Detection {
+  charset : Charset
+  text : String
+  score : Int32
+  errors : Int32
+  confidence : Int32
+}
+pub fn Detection::charset(Self) -> Charset
+pub fn Detection::confidence(Self) -> Int32
+pub fn Detection::errors(Self) -> Int32
+pub fn Detection::score(Self) -> Int32
+pub fn Detection::text(Self) -> String
+
+pub struct FixResult {
+  text : String
+  steps : Array[FixStep]
+  before : Int32
+  after : Int32
+}
+pub fn FixResult::after(Self) -> Int32
+pub fn FixResult::before(Self) -> Int32
+pub fn FixResult::steps(Self) -> Array[FixStep]
+pub fn FixResult::text(Self) -> String
+
+pub struct FixStep {
+  wrong : Charset
+  right : Charset
+}
+pub fn FixStep::right(Self) -> Charset
+pub fn FixStep::wrong(Self) -> Charset
+
+// Type aliases
+
+// Traits

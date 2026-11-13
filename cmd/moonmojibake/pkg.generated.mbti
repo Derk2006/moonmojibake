@@ -1,0 +1,19 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "Derk2006/moonmojibake/cmd/moonmojibake"
+
+// Values
+
+// Errors
+
+// Types and methods
+type FixEntry
+
+type Options
+
+type ScanEntry
+
+type Tally
+
+// Type aliases
+
+// Traits
