@@ -22,14 +22,17 @@ jobs:
       - name: Show toolchain
         run: moon version --all
 
-      - name: Type check
-        run: moon check
+      - name: Type check (warnings are errors)
+        run: moon check --deny-warn
 
       - name: Unit tests
         run: moon test
 
       - name: Build CLI (js)
         run: moon build --target js
+
+      - name: Build library (wasm)
+        run: moon build --target wasm
 
       - name: Build library (wasm-gc)
         run: moon build --target wasm-gc
