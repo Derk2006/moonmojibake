@@ -1,5 +1,6 @@
 ///|
 /// A character encoding MoonMojibake can decode, detect or repair.
+#derive(Eq, Debug)
 pub(all) enum Charset {
   Utf8
   Utf16Le
@@ -14,7 +15,20 @@ pub(all) enum Charset {
   EucKr
   Latin1
   Cp1252
-} derive(Eq, Debug)
+}
+
+///|
+/// Explicit trait-method re-exports. Newer MoonBit toolchains no longer
+/// promote trait implementations to regular methods implicitly; declaring
+/// the extends keeps `==`, `!=`, `Debug::to_repr` and `Show::to_string`
+/// callable on `Charset` exactly as before.
+pub extend Charset with Eq::{equal, not_equal}
+
+///|
+pub extend Charset with @debug.Debug::{to_repr}
+
+///|
+pub extend Charset with Show::{to_string, output}
 
 ///|
 pub impl Show for Charset with output(self, logger) {
