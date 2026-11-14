@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.6.2 — 2026-11-14
+
+Review package for the hackathon: everything a reviewer needs to check the
+project without reading the source, plus one runnable program that exercises
+the whole surface. No library behavior changed; 0.6.2 is 0.6.1 plus documents,
+an example, and a CI step that runs it.
+
+### Added
+
+- **`ACCEPTANCE.md`** — the acceptance criteria (MoonBit-first, public repo,
+  runs, substantive work, license, AI explainability) mapped to commands and
+  evidence; a five-minute reproduction; a wrong-answer audit listing every
+  failure mode this project has fixed and the test that pins it.
+- **`docs/DEVELOPMENT.md`** — development timeline, which decisions were hard
+  and what was rejected, where AI helped and where it was not allowed to
+  decide, and the mistakes that only testing found.
+- **`docs/TEST_RECORD.md`** — `moon version --all` output, then each check with
+  its observed result: 72 tests on four targets, three builds, 303 CPython
+  cross-checks, 2 351 159 exhaustive checks, CLI smoke, mooncakes install.
+- **`examples/detect_and_repair`** — a runnable tour with fixed inputs and no
+  file IO: decode, ranked detection, one repair chain, and a deliberate tie
+  reported as a tie. `moon run examples/detect_and_repair`.
+
+### Changed
+
+- CI runs the example and asserts three lines of its output, so the documented
+  tour cannot rot silently.
+- README links the new documents and lists the runnable example.
+
 ## 0.6.1 — 2026-11-13
 
 Maintenance release. Two things happened this week: a review note attached to

@@ -3,7 +3,11 @@
 [![CI](https://github.com/Derk2006/moonmojibake/actions/workflows/ci.yml/badge.svg)](https://github.com/Derk2006/moonmojibake/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![MoonBit](https://img.shields.io/badge/MoonBit-zero%20FFI-purple.svg)](https://www.moonbitlang.com/)
-[![mooncakes](https://img.shields.io/badge/mooncakes-Derk2006%2Fmoonmojibake%400.6.1-blue)](https://mooncakes.io/docs/#/Derk2006/moonmojibake)
+[![mooncakes](https://img.shields.io/badge/mooncakes-Derk2006%2Fmoonmojibake%400.6.2-blue)](https://mooncakes.io/docs/#/Derk2006/moonmojibake)
+
+> Reviewing this project? [`ACCEPTANCE.md`](ACCEPTANCE.md) maps every
+> acceptance criterion to a command you can run, and
+> [`docs/TEST_RECORD.md`](docs/TEST_RECORD.md) records the outputs.
 
 **Given bytes with no declared encoding, work out what they are. Given text that
 is already ruined, work out how it was ruined and undo it.**
@@ -68,6 +72,7 @@ that the same bytes always decode to the same text.
 | CLI — `--fail-if-not` | ✅ exit 2, so CI can reject a non-UTF-8 tree |
 | CLI — exit codes | ✅ 0 success, 1 usage/IO error, 2 assertion failed |
 | Unit tests | ✅ 72 passing (`moon test`) |
+| Runnable example | ✅ `moon run examples/detect_and_repair` (no file IO, every backend) |
 | Cross-check against CPython | ✅ 303/303 (`scripts/e2e_check.py`) |
 | Exhaustive byte-space check | ✅ 2 351 159/2 351 159, both directions (`scripts/space_check.py`) |
 | Dependencies | ✅ MoonBit core only, zero FFI |
@@ -227,7 +232,7 @@ the top level of the `scan` object.
 ### Install
 
 ```sh
-moon add Derk2006/moonmojibake@0.6.1
+moon add Derk2006/moonmojibake@0.6.2
 ```
 
 That writes the module dependency into `moon.mod`. The alias belongs to the
@@ -407,8 +412,13 @@ at the wrong character" instead of "does the sample happen to pass".
 
 ## Documentation
 
+- [`ACCEPTANCE.md`](ACCEPTANCE.md) — acceptance checklist, five-minute reproduction, wrong-answer audit
 - [`docs/USAGE.md`](docs/USAGE.md) — CLI and library reference
 - [`docs/FORMAT_NOTES.md`](docs/FORMAT_NOTES.md) — table layout, scoring weights, design reasoning
+- [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) — development history, AI usage, trade-offs, mistakes found by testing
+- [`docs/TEST_RECORD.md`](docs/TEST_RECORD.md) — toolchain, commands and observed results for 0.6.1
+- [`examples/detect_and_repair`](examples/detect_and_repair) — `moon run examples/detect_and_repair`
+- [`CHANGELOG.md`](CHANGELOG.md) — what changed in each release and why
 
 ## License
 
