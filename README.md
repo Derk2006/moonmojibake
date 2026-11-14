@@ -24,6 +24,8 @@ its own:
    tool. The result comes with the chain that produced it, e.g.
    `windows-1252 -> utf-8`.
 
+## Prior art
+
 Existing packages such as `LL728/moon_encoding` and `f4ah6o/encoding_sjis` solve
 a different problem: they map a *known* label to a decoder. MoonMojibake is what
 you reach for when there is no label, or when the label is wrong.
@@ -37,6 +39,10 @@ no score, no Shift_JIS or EUC-KR, and its own docs note that GBK and Big5 cannot
 be told apart, so double-byte text defaults to GBK. MoonMojibake returns ranked
 candidates with confidence behind them, covers Japanese and Korean, and repairs
 text that was already decoded wrongly.
+
+No code, table or test fixture in this repository was copied from those
+projects; the code page tables are generated from CPython by
+`scripts/gen_tables.py` and committed with the generator.
 
 ## Scope
 
