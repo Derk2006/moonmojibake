@@ -1,0 +1,5 @@
+import {
+  "Derk2006/moonmojibake/src/mojibake" @mojibake,
+}
+
+pkgtype(kind: "executable")
