@@ -5,14 +5,14 @@
 > `moon 0.1.20261104` / `moonc v0.10.20+65efd5b93`。
 >
 > 仓库：<https://github.com/Derk2006/moonmojibake> · 当前版本 **0.6.2**（mooncakes
-> `build_status: success`）· 38 个提交，日期覆盖 2026-11-01 至 2026-11-14。
+> `build_status: success`）· 35 个以上提交，日期覆盖 2026-11-01 至 2026-11-14。
 
 ## 一、验收标准逐条对照
 
 | # | 验收标准 | 状态 | 证据 |
 |---|---|---|---|
 | 1 | **MoonBit 为主** | 通过 | 全部实现为 MoonBit，13 661 行 `.mbt`（其中非测试代码 11 895 行）；唯一依赖是 MoonBit core，**零 FFI**；`moonc v0.10.20+65efd5b93` 编译通过 |
-| 2 | **仓库公开、提交连续可追踪** | 通过 | <https://github.com/Derk2006/moonmojibake> 公开仓库；38 个提交分布在 6 个开发日（11-01 / 11-06 / 11-09 / 11-11 / 11-13 / 11-14），每次提交对应一个可说明的改动，见 `CHANGELOG.md` |
+| 2 | **仓库公开、提交连续可追踪** | 通过 | <https://github.com/Derk2006/moonmojibake> 公开仓库；35 个以上提交分布在 6 个开发日（11-01 / 11-06 / 11-09 / 11-11 / 11-13 / 11-14），每次提交对应一个可说明的改动，见 `CHANGELOG.md` |
 | 3 | **能够运行：README、可运行示例、必要测试** | 通过 | README 给出安装、命令行、库三套用法；`examples/detect_and_repair` 一条命令可跑；72 个单元测试在 4 个目标上全部通过；CLI 五个子命令带冒烟测试 |
 | 4 | **工作有效：本期完成的实质新增** | 通过 | 11 月内从 0.1.0 迭代到 0.6.1：UTF-32、EUC-JP、四类「错误答案」修复、真正的 GB18030 四字节形式（1 087 996 条序列）、新工具链迁移。见第四节 |
 | 5 | **开源合规** | 通过 | Apache-2.0（`LICENSE`）；编码表由仓库内 `scripts/gen_tables.py` 从 CPython 3.12 codecs 生成，脚本与结果一并入库、CI 校验可重现；未复用任何第三方实现；生态对照见 README「Prior art」与 `查重报告_MoonMojibake.md` |
