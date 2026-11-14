@@ -28,6 +28,13 @@ jobs:
       - name: Unit tests
         run: moon test
 
+      - name: Runnable example
+        run: |
+          moon run examples/detect_and_repair | tee /tmp/example.txt
+          grep -q "gbk bytes -> 中文期刊" /tmp/example.txt
+          grep -q "chain : windows-1252 -> utf-8" /tmp/example.txt
+          grep -q "pure kana ties: gbk / euc-jp" /tmp/example.txt
+
       - name: Build CLI (js)
         run: moon build --target js
 
