@@ -13,7 +13,8 @@ how the project arrived at its current shape rather than only what it does.
 | 2026-11-09 | 0.5.0 | Four wrong-answer fixes (exit codes, directory-as-file, missing option value, tie confidence); exhaustive byte-space check added to CI |
 | 2026-11-11 | 0.6.0 | GB18030 promoted from an alias of GBK to a real code page: four-byte form, 206-run BMP table, arithmetic supplementary planes, private-use scoring fix |
 | 2026-11-13 | 0.6.1 | Toolchain migration (`#derive`, explicit `pub extend`, qualified test imports), CI hardened to `--deny-warn`, scope statement |
-| 2026-11-14 | — | Acceptance checklist, test record, runnable example, this document |
+| 2026-11-14 | 0.6.2 | Acceptance checklist, test record, runnable example, this document |
+| 2026-11-15 | 0.6.3 | Benchmarks and a labelled accuracy corpus; the corpus found a wrong answer on BOM-less UTF-16 CJK, which was then fixed behind a guard |
 
 The order was not planned top-down. Each version started from a concrete
 question a reviewer or a user could ask, and ended with a command that answers
@@ -23,6 +24,8 @@ it:
 - "Does it agree with a reference implementation?" → `scripts/e2e_check.py`, 303 checks.
 - "Can a script use it?" → exit codes, `--json`, `--fail-if-not`.
 - "Does the package actually install?" → empty-project `moon add` test each release.
+- "How fast is it, and what does it add over what already exists?" → `benches/`
+  and `scripts/accuracy_check.py`, added in 0.6.3.
 
 ## AI usage
 
@@ -86,8 +89,10 @@ cannot fake.
 
 ## What is deliberately unfinished
 
-- **UTF-16 without a BOM** is under-weighted, not "solved". Proving it requires
-  evidence the bytes may not contain.
+- **UTF-16 without a BOM** is under-weighted, not "solved". 0.6.3 narrowed the
+  gap for CJK text by requiring the UTF-16 reading to be clean, single-script,
+  and 20 points ahead of every 8-bit reading; a mixed-script UTF-16 stream can
+  still lose. Proving it in general requires evidence the bytes may not contain.
 - **Latin-1 vs windows-1252** on short Western text is genuinely undecidable;
   the detector says so with low confidence instead of guessing.
 - **Streaming decode** is not implemented. The current API takes `Bytes`; a

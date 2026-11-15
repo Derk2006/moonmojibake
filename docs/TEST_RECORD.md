@@ -1,6 +1,6 @@
-# Test record — 0.6.2
+# Test record — 0.6.3
 
-Recorded on 2026-11-14 on Windows (Git Bash), from a clean `_build`.
+Recorded on 2026-11-15 on Windows (Git Bash), from a clean `_build`.
 
 ## Toolchain
 
@@ -17,7 +17,7 @@ Feature flags enabled: rr_moon_mod,rr_moon_pkg
 
 ```
 $ moon check --deny-warn
-Finished. moon: ran 8 tasks, now up to date
+Finished. moon: ran 13 tasks, now up to date
 ```
 
 Zero warnings. This is the gate CI runs; a deprecation warning fails the build.
@@ -25,10 +25,10 @@ Zero warnings. This is the gate CI runs; a deprecation warning fails the build.
 ## Unit tests — four targets
 
 ```
-$ moon test                    Total tests: 72, passed: 72, failed: 0.
-$ moon test --target js        Total tests: 72, passed: 72, failed: 0.
-$ moon test --target wasm      Total tests: 72, passed: 72, failed: 0.
-$ moon test --target wasm-gc   Total tests: 72, passed: 72, failed: 0.
+$ moon test                    Total tests: 75, passed: 75, failed: 0.
+$ moon test --target js        Total tests: 75, passed: 75, failed: 0.
+$ moon test --target wasm      Total tests: 75, passed: 75, failed: 0.
+$ moon test --target wasm-gc   Total tests: 75, passed: 75, failed: 0.
 ```
 
 ## Builds — three backends
@@ -109,13 +109,49 @@ chain: latin1 -> utf-8
 我们把这件事说清楚，然后开始写代码。
 ```
 
+## Benchmarks
+
+```
+$ moon bench benches --release
+bench: decode gbk 1KiB     6.00 µs ± 103 ns     in 10 × 15852 runs
+bench: detect 1KiB gbk   131.62 µs ± 934 ns     in 10 ×   751 runs
+bench: detect 32KiB gbk    4.08 ms ± 27 µs      in 10 ×    25 runs
+bench: detect 1KiB utf8  218.38 µs ± 6.79 µs    in 10 ×   452 runs
+bench: repair 1KiB       708.68 µs ± 10.75 µs   in 10 ×   147 runs
+bench: encode gb18030      5.06 µs ± 235 ns     in 10 × 20742 runs
+Total tests: 6, passed: 6, failed: 0.
+```
+
+Throughput and the js-backend comparison are in `docs/BENCHMARK.md`. Absolute
+times are machine-dependent; the repository records the ratios, not a promise.
+
+## Detection accuracy
+
+```
+$ python scripts/accuracy_check.py --min-top1 0.95
+corpus        31 labelled cases (31 scored, 0 detect errors)
+
+                           top-1   top-3       n
+  moonmojibake            100.0%  100.0%      31
+  always-gbk               12.9%       -      31
+  bom-then-gbk             12.9%       -      31
+
+  abstained (reported as a tie): 2 / 31 (6.5%)
+
+OK: top-1 100.0% is at or above the 95.0% floor
+```
+
+The two abstentions are Latin-1 versus windows-1252, which are the same
+characters for text that never uses 0x80..0x9F — reported as a tie, not as a
+guess. CI runs the same command as a gate.
+
 ## Install from mooncakes
 
-`mooncakes.io` reports `Derk2006/moonmojibake` at `0.6.2`, `build_status:
+`mooncakes.io` reports `Derk2006/moonmojibake` at `0.6.3`, `build_status:
 success`. In an empty project:
 
 ```
-$ moon add Derk2006/moonmojibake@0.6.2
+$ moon add Derk2006/moonmojibake@0.6.3
 $ moon test        # decode, detect and repair assertions all pass
 Total tests: 1, passed: 1, failed: 0.
 ```
@@ -132,8 +168,10 @@ import {
 
 - No test asserts a particular confidence number for ambiguous input beyond
   "confidence 0" — the score is a ranking device, not a probability.
-- No test claims UTF-16 without a BOM can be proven; the limitation is
-  documented and the detector deliberately under-weighs it.
+- No test claims UTF-16 without a BOM can be *proven*. What is asserted is
+  narrower: when one script owns the decoded text, the decode is clean, and
+  every 8-bit reading is 20 points worse, UTF-16 wins; when any of those fails,
+  it does not. The grey zone in between stays documented as a limitation.
 - `moon fmt` is not part of CI: on this codebase it rewrites `Int` to `Int32`
   and `indent?` to `indent~`, which changes the public API. Formatting is
   reviewed by hand instead.
