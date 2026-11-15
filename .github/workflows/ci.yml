@@ -60,6 +60,9 @@ jobs:
       - name: Cross-check against CPython codecs
         run: python scripts/e2e_check.py
 
+      - name: Detection accuracy floor
+        run: python scripts/accuracy_check.py --min-top1 0.95
+
       - name: Exhaustive byte-space check
         run: python scripts/space_check.py
 
