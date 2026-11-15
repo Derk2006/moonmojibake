@@ -1,5 +1,55 @@
 # Changelog
 
+## 0.6.3 — 2026-11-15
+
+Two things a reviewer asks for and the project could not answer with numbers
+before: how fast it is, and what it adds over what the ecosystem already does.
+Both now have a harness in the repository and a gate in CI. Measuring the
+second one immediately found a wrong answer, which is the point of measuring.
+
+### Fixed
+
+- **BOM-less UTF-16 holding CJK text was answered as `latin1`.** The
+  conservative rule halved any UTF-16 reading that could not show the
+  alternating-zero pattern of Latin text, and CJK in UTF-16 never shows it —
+  its high bytes are 0x4E..0x9F. Correct Chinese was scored 43 and lost to the
+  Latin-1 reading of the same bytes at 45. The full score is now reinstated
+  when, and only when, all three hold: the decode is clean, one script owns at
+  least 80% of the characters, and the UTF-16 reading beats *every* 8-bit
+  reading by at least 20 points. The last condition is what stops the mirror
+  image of this bug: GBK bytes read as UTF-16 land in Hangul and look like
+  text too.
+  Covered by `bomless utf-16 chinese is read as utf-16, not as latin-1`,
+  `gbk bytes are not claimed as utf-16 by the same rule`, and
+  `utf-16 is not believed when the text is not one script`.
+- Detection accuracy on the labelled corpus went from 90.3% to 100% top-1 as a
+  result; the three misses were all BOM-less UTF-16 CJK.
+
+### Added
+
+- **`benches/`** — six benchmarks over the public entry points (`decode`,
+  `detect` at 1 KiB and 32 KiB, `detect` on UTF-8, `repair`, `encode`), run
+  with `moon bench benches --release`. Fixtures are built outside the timed
+  closure.
+- **`scripts/accuracy_check.py`** — a 31-case labelled corpus across five
+  scripts and eleven code pages, with two honest baselines ("always GBK", "BOM
+  else GBK"), acceptable-answer sets for genuinely indistinguishable byte
+  strings, a separate ASCII floor, and a `--min-top1` gate.
+- **`docs/BENCHMARK.md`** — environment, both tables, how to read them, the
+  bug the benchmark found, and a section on what the numbers do not prove.
+- **`scripted_share`** — public helper returning the percentage of characters
+  that belong to a script, counting only characters able to carry one. It is
+  what the UTF-16 rule above is gated on, and it is exported because it is a
+  reasonable question to ask of any text.
+
+### Changed
+
+- CI gained `python scripts/accuracy_check.py --min-top1 0.95`, so a change
+  that trades accuracy for speed fails the build instead of shipping.
+- `ACCEPTANCE.md` now maps the four 25-point scoring dimensions as published
+  for this season (engineering depth, technical contribution, ecosystem delta,
+  development and verification), replacing the previous four headings.
+
 ## 0.6.2 — 2026-11-14
 
 Review package for the hackathon: everything a reviewer needs to check the
