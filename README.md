@@ -3,7 +3,7 @@
 [![CI](https://github.com/Derk2006/moonmojibake/actions/workflows/ci.yml/badge.svg)](https://github.com/Derk2006/moonmojibake/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![MoonBit](https://img.shields.io/badge/MoonBit-zero%20FFI-purple.svg)](https://www.moonbitlang.com/)
-[![mooncakes](https://img.shields.io/badge/mooncakes-Derk2006%2Fmoonmojibake%400.6.2-blue)](https://mooncakes.io/docs/#/Derk2006/moonmojibake)
+[![mooncakes](https://img.shields.io/badge/mooncakes-Derk2006%2Fmoonmojibake%400.6.3-blue)](https://mooncakes.io/docs/#/Derk2006/moonmojibake)
 
 > Reviewing this project? [`ACCEPTANCE.md`](ACCEPTANCE.md) maps every
 > acceptance criterion to a command you can run, and
@@ -39,6 +39,14 @@ no score, no Shift_JIS or EUC-KR, and its own docs note that GBK and Big5 cannot
 be told apart, so double-byte text defaults to GBK. MoonMojibake returns ranked
 candidates with confidence behind them, covers Japanese and Korean, and repairs
 text that was already decoded wrongly.
+
+That difference is measured rather than asserted. On a 31-case labelled corpus
+(Simplified Chinese, Traditional Chinese, Japanese, Korean, Western, three
+lengths each, eleven code pages), [`scripts/accuracy_check.py`](scripts/accuracy_check.py)
+reports top-1 100% for MoonMojibake against 12.9% for "always answer GBK" and
+12.9% for "use the BOM, otherwise GBK" — the two behaviours available elsewhere
+in the ecosystem. Method, per-script breakdown and caveats are in
+[`docs/BENCHMARK.md`](docs/BENCHMARK.md).
 
 No code, table or test fixture in this repository was copied from those
 projects; the code page tables are generated from CPython by
@@ -77,7 +85,7 @@ that the same bytes always decode to the same text.
 | CLI — `--json` on every subcommand | ✅ stable field names, for pipelines |
 | CLI — `--fail-if-not` | ✅ exit 2, so CI can reject a non-UTF-8 tree |
 | CLI — exit codes | ✅ 0 success, 1 usage/IO error, 2 assertion failed |
-| Unit tests | ✅ 72 passing (`moon test`) |
+| Unit tests | ✅ 75 passing (`moon test`) |
 | Runnable example | ✅ `moon run examples/detect_and_repair` (no file IO, every backend) |
 | Cross-check against CPython | ✅ 303/303 (`scripts/e2e_check.py`) |
 | Exhaustive byte-space check | ✅ 2 351 159/2 351 159, both directions (`scripts/space_check.py`) |
@@ -238,7 +246,7 @@ the top level of the `scan` object.
 ### Install
 
 ```sh
-moon add Derk2006/moonmojibake@0.6.2
+moon add Derk2006/moonmojibake@0.6.3
 ```
 
 That writes the module dependency into `moon.mod`. The alias belongs to the
@@ -310,9 +318,14 @@ plausibility:
 - **Valid multi-byte UTF-8 is close to proof.** A legacy code page forming a
   well-shaped UTF-8 sequence across a whole file is astronomically unlikely,
   while UTF-8 read as a legacy code page happens daily.
-- **BOM-less UTF-16 has to prove itself** by showing the alternating-zero
-  pattern. Without a BOM, any even-length stream decodes into *something*, and
-  arbitrary byte pairs land in Hangul, where they look deceptively plausible.
+- **BOM-less UTF-16 has to prove itself**, because without a BOM any
+  even-length stream decodes into *something* and arbitrary byte pairs land in
+  Hangul, where they look deceptively plausible. The evidence is either the
+  alternating-zero pattern of Latin text, or — for CJK text, whose high bytes
+  are never zero — a clean decode in which one script owns at least 80% of the
+  characters and every 8-bit reading of the same bytes is more than 20 points
+  worse. Both halves are needed: GBK bytes read as UTF-16 also land in real
+  blocks, so "it looks like text in UTF-16" is on its own no evidence at all.
 
 The character-frequency signal does not ship a corpus. Membership in GB2312
 level 1 (3 755 frequent simplified characters) or Big5 level 1 (5 495 frequent
@@ -370,7 +383,7 @@ free of third-party licence questions.
 ## Testing
 
 ```sh
-moon test                        # 72 unit tests
+moon test                        # 75 unit tests
 moon build --target js
 python scripts/e2e_check.py      # 303 cross-checks against CPython
 python scripts/space_check.py    # 2 351 159 exhaustive checks, both directions
@@ -411,8 +424,10 @@ at the wrong character" instead of "does the sample happen to pass".
 - Western text shorter than a sentence is ambiguous for the same reason:
   Latin-1 and windows-1252 are identical for anything that does not use
   0x80–0x9F, and both look plausible under several code pages.
-- BOM-less UTF-16 holding CJK text cannot be proven and is deliberately
-  discounted; UTF-16 with a BOM is detected exactly.
+- BOM-less UTF-16 holding CJK text is now recognised when it is the only
+  reading that explains the bytes — see the UTF-16 rule above — but a UTF-16
+  stream whose half-decoded text is a plausible mix of scripts can still lose
+  to a single-byte reading. UTF-16 with a BOM is detected exactly.
 - Healing is bounded by information loss. Once a byte became U+FFFD, the
   original is gone.
 
@@ -422,7 +437,8 @@ at the wrong character" instead of "does the sample happen to pass".
 - [`docs/USAGE.md`](docs/USAGE.md) — CLI and library reference
 - [`docs/FORMAT_NOTES.md`](docs/FORMAT_NOTES.md) — table layout, scoring weights, design reasoning
 - [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) — development history, AI usage, trade-offs, mistakes found by testing
-- [`docs/TEST_RECORD.md`](docs/TEST_RECORD.md) — toolchain, commands and observed results for 0.6.1
+- [`docs/BENCHMARK.md`](docs/BENCHMARK.md) — throughput and detection accuracy, with method and caveats
+- [`docs/TEST_RECORD.md`](docs/TEST_RECORD.md) — toolchain, commands and observed results for 0.6.3
 - [`examples/detect_and_repair`](examples/detect_and_repair) — `moon run examples/detect_and_repair`
 - [`CHANGELOG.md`](CHANGELOG.md) — what changed in each release and why
 

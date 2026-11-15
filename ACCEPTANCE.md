@@ -4,16 +4,16 @@
 > 工作有效 / 开源合规 / AI 可解释）。所有命令均在仓库根目录执行，使用
 > `moon 0.1.20261104` / `moonc v0.10.20+65efd5b93`。
 >
-> 仓库：<https://github.com/Derk2006/moonmojibake> · 当前版本 **0.6.2**（mooncakes
-> `build_status: success`）· 35 个以上提交，日期覆盖 2026-11-01 至 2026-11-14。
+> 仓库：<https://github.com/Derk2006/moonmojibake> · 当前版本 **0.6.3**（mooncakes
+> `build_status: success`）· 35 个以上提交，日期覆盖 2026-11-01 至 2026-11-15。
 
 ## 一、验收标准逐条对照
 
 | # | 验收标准 | 状态 | 证据 |
 |---|---|---|---|
 | 1 | **MoonBit 为主** | 通过 | 全部实现为 MoonBit，13 661 行 `.mbt`（其中非测试代码 11 895 行）；唯一依赖是 MoonBit core，**零 FFI**；`moonc v0.10.20+65efd5b93` 编译通过 |
-| 2 | **仓库公开、提交连续可追踪** | 通过 | <https://github.com/Derk2006/moonmojibake> 公开仓库；35 个以上提交分布在 6 个开发日（11-01 / 11-06 / 11-09 / 11-11 / 11-13 / 11-14），每次提交对应一个可说明的改动，见 `CHANGELOG.md` |
-| 3 | **能够运行：README、可运行示例、必要测试** | 通过 | README 给出安装、命令行、库三套用法；`examples/detect_and_repair` 一条命令可跑；72 个单元测试在 4 个目标上全部通过；CLI 五个子命令带冒烟测试 |
+| 2 | **仓库公开、提交连续可追踪** | 通过 | <https://github.com/Derk2006/moonmojibake> 公开仓库；35 个以上提交分布在 7 个开发日（11-01 / 11-06 / 11-09 / 11-11 / 11-13 / 11-14 / 11-15），每次提交对应一个可说明的改动，见 `CHANGELOG.md` |
+| 3 | **能够运行：README、可运行示例、必要测试** | 通过 | README 给出安装、命令行、库三套用法；`examples/detect_and_repair` 一条命令可跑；75 个单元测试在 4 个目标上全部通过；CLI 五个子命令带冒烟测试 |
 | 4 | **工作有效：本期完成的实质新增** | 通过 | 11 月内从 0.1.0 迭代到 0.6.1：UTF-32、EUC-JP、四类「错误答案」修复、真正的 GB18030 四字节形式（1 087 996 条序列）、新工具链迁移。见第四节 |
 | 5 | **开源合规** | 通过 | Apache-2.0（`LICENSE`）；编码表由仓库内 `scripts/gen_tables.py` 从 CPython 3.12 codecs 生成，脚本与结果一并入库、CI 校验可重现；未复用任何第三方实现；生态对照见 README「Prior art」与 `查重报告_MoonMojibake.md` |
 | 6 | **AI 可解释** | 通过 | `docs/DEVELOPMENT.md` 记录开发历程、AI 使用边界、关键取舍与失败案例；每个判定规则的权重与理由在 `docs/FORMAT_NOTES.md` 逐条公开 |
@@ -25,7 +25,7 @@ git clone https://github.com/Derk2006/moonmojibake && cd moonmojibake
 
 moon version --all          # 记录工具链
 moon check --deny-warn      # 零警告（警告即失败）
-moon test                   # 72 passed
+moon test                   # 75 passed
 moon build --target js
 moon run examples/detect_and_repair    # 可运行示例，见下
 ```
@@ -64,12 +64,18 @@ python scripts/space_check.py     # 2 351 159 项全字节空间差分
 
 ## 三、评分维度对照
 
-| 维度 | 本项目的落点 | 可检查的位置 |
+官方季度赛评分准则为四项、每项 25 分，按「一般 / 良好 / 优秀」三档评估。下表左列
+是官方对「优秀」档的原文描述，右列是本项目的落点与可检查的证据。
+
+| 官方维度（25 分）与「优秀」档原文 | 本项目的落点 | 可检查的位置 |
 |---|---|---|
-| **工程深度与实现强度** | 十三种编码双向编解码；GB18030 四字节 1 087 996 条；EUC-JP 三种形态；五信号打分；四层乱码回溯；目录扫描与批量修复；CLI + 库 + JSON 输出 | `src/mojibake/`、`cmd/moonmojibake/`、`docs/FORMAT_NOTES.md` |
-| **技术贡献与攻关** | 东亚编码「都能解码成功」导致的判定难题：用文种证据、常用字比例、排他性与惩罚项组合判定；平局如实上报；GBK/GB18030 包含关系处理；乱码链的文种互斥保护 | README「Prior art」、`docs/FORMAT_NOTES.md`、第五节 |
-| **可解释性与文档** | 权重与算法公开；每个限制写明而非隐藏；开发历程与 AI 使用说明；错误答案清单与回归测试对应 | `docs/FORMAT_NOTES.md`、`docs/DEVELOPMENT.md`、`docs/TEST_RECORD.md` |
-| **用户体验** | 一条命令完成检测/修复/转码；`--json` 稳定字段；`--fail-if-not` 退出码可直接进 CI；错误码区分「仓库坏了」与「命令写错了」 | `docs/USAGE.md`、README Quick start |
+| **01 工程深度与实现强度**：核心成果完整且具有足够强度，关键场景得到验证，范围变化和未完成事项交代清楚，整体达到或超过预期 | 十三种编码双向编解码；GB18030 四字节 1 087 996 条；EUC-JP 三种形态；五信号打分；四层乱码回溯；目录扫描与批量修复；CLI + 库 + JSON。关键场景有基准验证（31 条标注语料 top-1 100%、三后端 75 测试全过）；未完成事项与边界在第七节和 README `Limitations` 中逐条写明 | `src/mojibake/`、`cmd/moonmojibake/`、`docs/BENCHMARK.md`、`docs/FORMAT_NOTES.md` |
+| **02 技术贡献与攻关**：解决了实质性难题，对约束、取舍和边界有深入掌握，并形成高质量的 MoonBit 原生设计或技术突破 | 东亚编码「都能解码成功」导致的判定难题：文种证据、常用字比例、排他性与惩罚项组合判定；平局如实上报而非猜一个标签；GBK/GB18030 包含关系的窄覆盖宽；乱码链的文种互斥保护；无 BOM UTF-16 的「仅当别无可解释」复核规则及其反向护栏 | README `Prior art`、`docs/FORMAT_NOTES.md`、`docs/BENCHMARK.md` 第三节 |
+| **03 生态增量**：通过数据、场景、采用或独立验证证明了显著改进，为 MoonBit 带来重要的新能力、平台适配或广泛复用价值 | 生态里此前的检测只有两种形态：解析器按 BOM/规格嗅探，或「双字节默认 GBK」。同一套 31 条标注语料上，本项目 top-1 100%，两条基线各 12.9%——这是量化差值，不是形容词。项目已发布 mooncakes，可在任意新项目中 `moon add` 直接复用 | README `Prior art`、`docs/BENCHMARK.md`、第五节 |
+| **04 开发与验证能力**：形成稳定、可重复的任务拆解和验证闭环，综合使用 Harness、回归、基准、自动化及 AI 校验，并能展示其实际发现和防止错误的效果 | Harness：`e2e_check.py`（303 项对 CPython）、`space_check.py`（2 351 159 项全字节空间差分）、`accuracy_check.py`（准确率基准 + CI 下限）；回归：75 个单元测试 + 每个已修错误都有一条钉住它的测试；基准：`benches/`（六项吞吐，wasm/js 双后端）；自动化：CI 跑零警告检查、四目标测试、三后端构建、可重现性校验、示例断言、退出码语义、幂等性；AI 校验：AI 生成的编码表与判定规则一律用 CPython 与全空间差分复核，不采信「看起来对」 | `scripts/`、`benches/`、`.github/workflows/ci.yml`、`docs/BENCHMARK.md`、`docs/DEVELOPMENT.md` |
+
+第四节记「本期实质新增」，第五节记「错误答案自查」——后者正是维度四所要求的
+「展示其实际发现和防止错误的效果」。
 
 ## 四、本期（2026 年 11 月）的实质新增
 
