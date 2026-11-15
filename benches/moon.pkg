@@ -1,0 +1,4 @@
+import {
+  "Derk2006/moonmojibake/src/mojibake" @mojibake,
+  "moonbitlang/core/bench" @bench,
+}
