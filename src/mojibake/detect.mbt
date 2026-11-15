@@ -196,6 +196,47 @@ pub fn detect(bytes : Bytes) -> Array[Detection] {
       confidence: 0,
     })
   }
+  // UTF-16 is halved above unless it can prove itself with an ASCII pattern,
+  // because any even-length stream decodes into *something*.  That test is
+  // written for Latin text: correct CJK prose in UTF-16 has no zero high byte
+  // at all, so it gets halved to a score in the forties and loses to the
+  // Latin-1 reading of the same bytes — the one case where the conservative
+  // rule produces a wrong answer rather than a cautious one.
+  //
+  // Reinstating the full score is gated on every 8-bit reading being clearly
+  // worse, not on the UTF-16 score alone.  A GBK stream read as UTF-16 also
+  // lands in plausible blocks, so "it looks like text as UTF-16" is on its own
+  // no evidence at all; what distinguishes the real case is that nothing else
+  // explains the bytes nearly as well.
+  let mut best_eight_bit = 0
+  for row in results {
+    let is_wide = row.charset == Charset::Utf16Le ||
+      row.charset == Charset::Utf16Be ||
+      row.charset == Charset::Utf32Le ||
+      row.charset == Charset::Utf32Be
+    if !is_wide && row.score > best_eight_bit {
+      best_eight_bit = row.score
+    }
+  }
+  let mut wide_index = 0
+  while wide_index < results.length() {
+    let row = results[wide_index]
+    if row.charset == Charset::Utf16Le || row.charset == Charset::Utf16Be {
+      let full = text_score(row.text, row.errors)
+      if row.errors == 0 &&
+        full >= best_eight_bit + 20 &&
+        scripted_share(row.text) >= 80 {
+        results[wide_index] = {
+          charset: row.charset,
+          text: row.text,
+          score: full,
+          errors: row.errors,
+          confidence: 0,
+        }
+      }
+    }
+    wide_index = wide_index + 1
+  }
   // Insertion sort: every candidate, and stability matters for tie-breaking.
   let mut i = 1
   while i < results.length() {

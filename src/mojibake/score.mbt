@@ -251,3 +251,32 @@ pub fn text_score(text : String, errors : Int) -> Int {
 pub fn score_decoded(decoded : Decoded) -> Int {
   text_score(decoded.text, decoded.errors)
 }
+
+///|
+/// Percentage of the characters that belong to a script, counting only
+/// characters able to carry one.  Punctuation and ASCII are left out of both
+/// sides rather than counted as evidence against: a Chinese sentence with
+/// three commas is still entirely Chinese.
+///
+/// Used to decide whether a UTF-16 reading is coherent enough to be believed
+/// when it cannot prove itself with ASCII padding.
+pub fn scripted_share(text : String) -> Int {
+  let mut counted = 0
+  let mut scripted = 0
+  for ch in text {
+    let codepoint = ch.to_int()
+    let is_ideograph = codepoint >= 0x4E00 && codepoint <= 0x9FFF
+    let is_kana = codepoint >= 0x3040 && codepoint <= 0x30FF
+    let is_hangul = codepoint >= 0xAC00 && codepoint <= 0xD7AF
+    if is_ideograph || is_kana || is_hangul {
+      scripted = scripted + 1
+      counted = counted + 1
+    } else if !is_neutral_char(codepoint) {
+      counted = counted + 1
+    }
+  }
+  if counted == 0 {
+    return 0
+  }
+  scripted * 100 / counted
+}

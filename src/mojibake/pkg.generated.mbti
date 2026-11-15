@@ -46,6 +46,8 @@ pub fn repair_auto(Bytes) -> AutoFix
 
 pub fn score_decoded(Decoded) -> Int32
 
+pub fn scripted_share(String) -> Int32
+
 pub fn text_score(String, Int32) -> Int32
 
 pub fn was_repaired(FixResult) -> Bool

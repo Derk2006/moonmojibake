@@ -593,3 +593,46 @@ test "detection only claims gb18030 when the bytes use its extra room" {
     assert_true(row.charset() != @mojibake.Charset::Gb18030)
   }
 }
+
+///|
+test "bomless utf-16 chinese is read as utf-16, not as latin-1" {
+  // 中文期刊 as UTF-16LE and UTF-16BE.  There is no BOM, and every high byte
+  // is in 0x4E..0x9F, so the old "half the code units have a zero high byte"
+  // evidence test never fired and the reading was halved below the Latin-1
+  // reading of the same bytes.  That returned a wrong answer, not a cautious
+  // one: the Latin-1 text is control characters and stray letters.
+  let little : Bytes = b"\x2d\x4e\x87\x65\x1f\x67\x0a\x52"
+  assert_eq(@mojibake.detect(little)[0].charset(), @mojibake.Charset::Utf16Le)
+  assert_eq(@mojibake.detect_text(little), "中文期刊")
+  let big : Bytes = b"\x4e\x2d\x65\x87\x67\x1f\x52\x0a"
+  assert_eq(@mojibake.detect(big)[0].charset(), @mojibake.Charset::Utf16Be)
+  assert_eq(@mojibake.detect_text(big), "中文期刊")
+}
+
+///|
+test "gbk bytes are not claimed as utf-16 by the same rule" {
+  // The reinstated full score is gated on every 8-bit reading being far
+  // worse.  GBK bytes read as UTF-16 also land in real blocks — Hangul here —
+  // so without the margin this pair would trade one wrong answer for another.
+  let gbk : Bytes = b"\xd6\xd0\xce\xc4\xc6\xda\xbf\xaf"
+  let rows = @mojibake.detect(gbk)
+  assert_eq(rows[0].charset(), @mojibake.Charset::Gbk)
+  assert_eq(@mojibake.detect_text(gbk), "中文期刊")
+}
+
+///|
+test "utf-16 is not believed when the text is not one script" {
+  // No zero high byte anywhere, so the ASCII evidence never fires; and the
+  // 16-bit reading is half ideographs, half Latin letters with macrons.  A
+  // reading nobody would call text does not earn the full score back, so the
+  // halved score keeps it out of first place.
+  let mixed : Bytes = b"\x2d\x4e\x00\x01\x87\x65\x00\x01"
+  assert_true(@mojibake.scripted_share(@mojibake.detect_text(mixed)) < 80)
+  let rows = @mojibake.detect(mixed)
+  assert_true(rows[0].charset() != @mojibake.Charset::Utf16Le)
+  for row in rows {
+    if row.charset() == @mojibake.Charset::Utf16Le {
+      assert_true(row.score() <= 50)
+    }
+  }
+}
