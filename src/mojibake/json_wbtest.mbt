@@ -36,8 +36,22 @@ test "detection json is empty-safe" {
   let text = detection_json("empty.txt", 0, rows)
   assert_eq(
     text,
-    "{\"source\":\"empty.txt\",\"bytes\":0,\"guess\":null,\"ambiguous\":false,\"tied\":[],\"candidates\":[]}",
+    "{\"schema\":1,\"source\":\"empty.txt\",\"bytes\":0,\"guess\":null,\"ambiguous\":false,\"tied\":[],\"candidates\":[]}",
   )
+}
+
+///|
+test "every json object carries the schema version first" {
+  // A consumer needs to know which contract it is reading before it reads
+  // anything else, so the key is first rather than appended: a parser that
+  // looks at the first key can decide without buffering the document.
+  let rows = detect(b"\xd6\xd0\xce\xc4")
+  let detection = detection_json("zh.txt", 4, rows)
+  assert_true(detection.has_prefix("{\"schema\":" + json_schema_version.to_string() + ","))
+  let repaired = fix_json("broken.txt", repair("hello world"))
+  assert_true(repaired.has_prefix("{\"schema\":" + json_schema_version.to_string() + ","))
+  // The version is a shared constant, not a literal glued into each writer.
+  assert_eq(json_schema_version, 1)
 }
 
 ///|

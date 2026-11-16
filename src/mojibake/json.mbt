@@ -62,6 +62,17 @@ fn quoted(text : String) -> String {
 }
 
 ///|
+/// Version of the `--json` object shape emitted by this package and by the
+/// command-line tool.
+///
+/// The promise, documented in `docs/USAGE.md`: **adding** a field does not
+/// change this number, so consumers may ignore unknown keys; **removing** a
+/// field or changing what an existing one means does change it. A consumer
+/// that reads `candidates[].charset` can therefore tell whether the contract
+/// it was written against is still in force.
+pub let json_schema_version : Int = 1
+
+///|
 /// JSON for a detection report: the winner first, then every candidate.
 ///
 /// `text` is deliberately absent — a candidate list is metadata, and a
@@ -69,7 +80,9 @@ fn quoted(text : String) -> String {
 /// `convert` when the text itself is wanted.
 pub fn detection_json(source : String, byte_count : Int, rows : Array[Detection]) -> String {
   let out = StringBuilder()
-  out.write_string("{\"source\":")
+  out.write_string("{\"schema\":")
+  out.write_string(json_schema_version.to_string())
+  out.write_string(",\"source\":")
   out.write_string(quoted(source))
   out.write_string(",\"bytes\":")
   out.write_string(byte_count.to_string())
@@ -127,7 +140,9 @@ pub fn detection_json(source : String, byte_count : Int, rows : Array[Detection]
 /// JSON for a repair result, including the recovered text and the chain.
 pub fn fix_json(source : String, result : FixResult) -> String {
   let out = StringBuilder()
-  out.write_string("{\"source\":")
+  out.write_string("{\"schema\":")
+  out.write_string(json_schema_version.to_string())
+  out.write_string(",\"source\":")
   out.write_string(quoted(source))
   out.write_string(",\"repaired\":")
   out.write_string(if result.steps.length() > 0 { "true" } else { "false" })
