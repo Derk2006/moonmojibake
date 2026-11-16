@@ -165,12 +165,12 @@ guess. CI runs the same command as a gate.
 
 ## Install from mooncakes
 
-`mooncakes.io` reports `Derk2006/moonmojibake` at `0.6.3`, `build_status:
+`mooncakes.io` reports `Derk2006/moonmojibake` at `0.6.4`, `build_status:
 success`. In an empty project:
 
 ```
-$ moon add Derk2006/moonmojibake@0.6.3
-$ moon test        # decode, detect and repair assertions all pass
+$ moon add Derk2006/moonmojibake@0.6.4
+$ moon test        # decode, detect, repair and the JSON schema assertion all pass
 Total tests: 1, passed: 1, failed: 0.
 ```
 
