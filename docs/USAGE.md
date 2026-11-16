@@ -197,10 +197,16 @@ using `detect_charset`.
 `detect`, `repair`, `scan` and `fix` accept `--json` and print one compact
 object per run. Field names are part of the interface.
 
+Every object begins with `"schema":1`, the version of this shape. The promise
+is one-directional: **adding** a field leaves the number alone, so ignore keys
+you do not recognise; **removing** a field, or giving an existing one a
+different meaning, bumps it. Read the first key once per document and you know
+which contract you are holding without buffering the rest.
+
 `detect`:
 
 ```json
-{"source":"samples/gbk.txt","bytes":36,"guess":"gbk","confidence":51,
+{"schema":1,"source":"samples/gbk.txt","bytes":36,"guess":"gbk","confidence":51,
  "ambiguous":false,"tied":["gbk"],"score":86,"errors":0,
  "candidates":[{"charset":"gbk","family":"Chinese","score":86,
                 "confidence":51,"errors":0}, ...]}
@@ -214,7 +220,7 @@ input is genuinely ambiguous.
 `repair`:
 
 ```json
-{"source":"samples/moji_latin1.txt","repaired":true,"before":40,"after":86,
+{"schema":1,"source":"samples/moji_latin1.txt","repaired":true,"before":40,"after":86,
  "chain":[{"wrong":"latin1","right":"utf-8"}],
  "text":"我们把这件事说清楚，然后开始写代码。"}
 ```
@@ -225,7 +231,7 @@ layers. `repaired` is false with an empty chain when nothing was found.
 `scan`:
 
 ```json
-{"dir":"samples","files":8,"fail_if_not":"utf-8","assert_ok":false,
+{"schema":1,"dir":"samples","files":8,"fail_if_not":"utf-8","assert_ok":false,
  "encodings":[{"charset":"utf-8","files":3}, ...],
  "entries":[{"path":"samples/gbk.txt","binary":false,
              "charset":"gbk","confidence":51}, ...]}
@@ -242,7 +248,7 @@ reported as `unreadable` rather than aborting the walk, and empty files as
 `fix`:
 
 ```json
-{"dir":"samples","recursive":true,"write":false,"files":8,"binary":0,
+{"schema":1,"dir":"samples","recursive":true,"write":false,"files":8,"binary":0,
  "changed":7,"written":0,
  "entries":[{"path":"samples/moji_latin1.txt","read_as":"utf-8",
              "chain":"latin1 -> utf-8","repaired":true,

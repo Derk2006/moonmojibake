@@ -1,6 +1,8 @@
-# Test record — 0.6.3
+# Test record — 0.6.4
 
-Recorded on 2026-11-15 on Windows (Git Bash), from a clean `_build`.
+Recorded on 2026-11-16 on Windows (Git Bash), from a clean `_build`. The
+numbers below are this run; the benchmark section was re-measured on 0.6.3 and
+its code paths were not touched since.
 
 ## Toolchain
 
@@ -25,10 +27,10 @@ Zero warnings. This is the gate CI runs; a deprecation warning fails the build.
 ## Unit tests — four targets
 
 ```
-$ moon test                    Total tests: 75, passed: 75, failed: 0.
-$ moon test --target js        Total tests: 75, passed: 75, failed: 0.
-$ moon test --target wasm      Total tests: 75, passed: 75, failed: 0.
-$ moon test --target wasm-gc   Total tests: 75, passed: 75, failed: 0.
+$ moon test                    Total tests: 76, passed: 76, failed: 0.
+$ moon test --target js        Total tests: 76, passed: 76, failed: 0.
+$ moon test --target wasm      Total tests: 76, passed: 76, failed: 0.
+$ moon test --target wasm-gc   Total tests: 76, passed: 76, failed: 0.
 ```
 
 ## Builds — three backends
@@ -108,6 +110,22 @@ score 40 -> 86
 chain: latin1 -> utf-8
 我们把这件事说清楚，然后开始写代码。
 ```
+
+## JSON schema stamp
+
+```
+$ node .../moonmojibake.js detect samples/gbk.txt --json
+{"schema":1,"source":"samples/gbk.txt","bytes":36,"guess":"gbk", ...}
+$ node .../moonmojibake.js repair samples/moji_latin1.txt --json
+{"schema":1,"source":"samples/moji_latin1.txt","repaired":true, ...}
+$ node .../moonmojibake.js scan samples --json
+{"schema":1,"dir":"samples","files":8,"fail_if_not":null, ...}
+$ node .../moonmojibake.js fix samples --json
+{"schema":1,"dir":"samples","recursive":false,"write":false, ...}
+```
+
+All four commands emit `schema` as the first key. The CI step re-checks this by
+parsing the output rather than grepping it, so a malformed object fails too.
 
 ## Benchmarks
 

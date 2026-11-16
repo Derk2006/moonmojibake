@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.6.4 — 2026-11-16
+
+Closes the third item of the "what is deliberately unfinished" list: the
+`--json` output now says which version of the shape it is. Additive, no
+behaviour change for a consumer that ignores unknown keys.
+
+### Added
+
+- **`"schema":1` as the first key of every `--json` object**, from `detect`,
+  `repair`, `scan` and `fix`. The key is first rather than appended so a
+  consumer can decide before buffering the document. The number comes from one
+  exported constant (`json_schema_version` in `src/mojibake/json.mbt`), not a
+  literal repeated in four writers.
+- The contract is one-directional and is stated in `docs/USAGE.md`: adding a
+  field leaves the number alone, removing one or changing its meaning bumps it.
+  This is what lets a caller written against 0.6.x notice that the shape moved
+  instead of silently misreading a renamed field.
+- CI step `JSON carries its schema version` runs all four commands, parses the
+  output, and asserts both the value and that `schema` is the first key.
+- Test `every json object carries the schema version first`.
+
 ## 0.6.3 — 2026-11-15
 
 Two things a reviewer asks for and the project could not answer with numbers
