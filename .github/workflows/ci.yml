@@ -74,6 +74,14 @@ jobs:
           node $CLI repair samples/moji_latin1.txt | tee /tmp/repair.txt
           grep -q "latin1 -> utf-8" /tmp/repair.txt
 
+      - name: JSON carries its schema version
+        run: |
+          CLI=_build/js/debug/build/cmd/moonmojibake/moonmojibake.js
+          for args in "detect samples/gbk.txt" "repair samples/moji_latin1.txt" "scan samples" "fix samples"; do
+            node $CLI $args --json > /tmp/out.json
+            python -c "import json,sys; d=json.load(open('/tmp/out.json')); assert d['schema']==1, d; assert list(d)[0]=='schema', list(d)[:3]"
+          done
+
       - name: Tree repair is idempotent
         run: |
           CLI=_build/js/debug/build/cmd/moonmojibake/moonmojibake.js

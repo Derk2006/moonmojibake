@@ -103,7 +103,9 @@ fn fix_json(
 ) -> String {
   let out = StringBuilder()
   out.write_char('{')
-  out.write_string("\"dir\":")
+  out.write_string("\"schema\":")
+  out.write_string(@mojibake.json_schema_version.to_string())
+  out.write_string(",\"dir\":")
   out.write_string(json_quote(dir))
   out.write_string(",\"recursive\":")
   out.write_string(if recursive { "true" } else { "false" })

@@ -32,6 +32,8 @@ pub fn is_ascii_text(String) -> Bool
 
 pub fn json_escape(String) -> String
 
+pub let json_schema_version : Int32
+
 pub fn looks_binary(Bytes) -> Bool
 
 pub fn render_chain(FixResult) -> String

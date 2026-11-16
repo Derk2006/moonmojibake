@@ -3,7 +3,7 @@
 [![CI](https://github.com/Derk2006/moonmojibake/actions/workflows/ci.yml/badge.svg)](https://github.com/Derk2006/moonmojibake/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![MoonBit](https://img.shields.io/badge/MoonBit-zero%20FFI-purple.svg)](https://www.moonbitlang.com/)
-[![mooncakes](https://img.shields.io/badge/mooncakes-Derk2006%2Fmoonmojibake%400.6.3-blue)](https://mooncakes.io/docs/#/Derk2006/moonmojibake)
+[![mooncakes](https://img.shields.io/badge/mooncakes-Derk2006%2Fmoonmojibake%400.6.4-blue)](https://mooncakes.io/docs/#/Derk2006/moonmojibake)
 
 > Reviewing this project? [`ACCEPTANCE.md`](ACCEPTANCE.md) maps every
 > acceptance criterion to a command you can run, and
@@ -85,7 +85,7 @@ that the same bytes always decode to the same text.
 | CLI — `--json` on every subcommand | ✅ stable field names, for pipelines |
 | CLI — `--fail-if-not` | ✅ exit 2, so CI can reject a non-UTF-8 tree |
 | CLI — exit codes | ✅ 0 success, 1 usage/IO error, 2 assertion failed |
-| Unit tests | ✅ 75 passing (`moon test`) |
+| Unit tests | ✅ 76 passing (`moon test`) |
 | Runnable example | ✅ `moon run examples/detect_and_repair` (no file IO, every backend) |
 | Cross-check against CPython | ✅ 303/303 (`scripts/e2e_check.py`) |
 | Exhaustive byte-space check | ✅ 2 351 159/2 351 159, both directions (`scripts/space_check.py`) |
@@ -246,7 +246,7 @@ the top level of the `scan` object.
 ### Install
 
 ```sh
-moon add Derk2006/moonmojibake@0.6.3
+moon add Derk2006/moonmojibake@0.6.4
 ```
 
 That writes the module dependency into `moon.mod`. The alias belongs to the
@@ -383,7 +383,7 @@ free of third-party licence questions.
 ## Testing
 
 ```sh
-moon test                        # 75 unit tests
+moon test                        # 76 unit tests
 moon build --target js
 python scripts/e2e_check.py      # 303 cross-checks against CPython
 python scripts/space_check.py    # 2 351 159 exhaustive checks, both directions
@@ -438,7 +438,7 @@ at the wrong character" instead of "does the sample happen to pass".
 - [`docs/FORMAT_NOTES.md`](docs/FORMAT_NOTES.md) — table layout, scoring weights, design reasoning
 - [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) — development history, AI usage, trade-offs, mistakes found by testing
 - [`docs/BENCHMARK.md`](docs/BENCHMARK.md) — throughput and detection accuracy, with method and caveats
-- [`docs/TEST_RECORD.md`](docs/TEST_RECORD.md) — toolchain, commands and observed results for 0.6.3
+- [`docs/TEST_RECORD.md`](docs/TEST_RECORD.md) — toolchain, commands and observed results for 0.6.4
 - [`examples/detect_and_repair`](examples/detect_and_repair) — `moon run examples/detect_and_repair`
 - [`CHANGELOG.md`](CHANGELOG.md) — what changed in each release and why
 
