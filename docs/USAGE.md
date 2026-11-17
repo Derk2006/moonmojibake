@@ -180,17 +180,21 @@ question.
 ### Ambiguous input
 
 Detection is allowed to answer "this is a tie" instead of picking a winner.
-Two cases produce one:
+Three cases produce one:
 
 - **Pure ASCII.** Every ASCII-compatible code page produces and accepts the
   same bytes; the top of the ranking is a convention, not evidence.
 - **Kana-only EUC-JP.** JIS X 0208 rows 0xA4 and 0xA5 hold the same kana in
   GBK, so `あいうえお` has one spelling that both code pages read the same way.
+- **Latin-1 and windows-1252.** The two pages differ only in 0x80..0x9F. A
+  Western file that never uses those bytes decodes identically under both, so
+  the *reading* is certain and the *name* is not.
 
-In both cases `detect` prints the tied names and `--json` sets `ambiguous` to
-`true` with the tied list in `tied`. `rows[0]` is still a valid answer — it is
-just not the only one — so library callers that need a single name can keep
-using `detect_charset`.
+In all three cases `detect` prints the tied names and `--json` sets `ambiguous`
+to `true` with the tied list in `tied`. Since 0.7.0 the tied names share one
+row — see `equivalent` below — instead of occupying one row each. `rows[0]` is
+still a valid answer; it is just not the only one, so library callers that need
+a single name can keep using `detect_charset`.
 
 ### `--json`
 
@@ -216,6 +220,20 @@ which contract you are holding without buffering the rest.
 holds every candidate that decodes the bytes to the same text with the same
 score; it always contains `guess`, and has more than one entry only when the
 input is genuinely ambiguous.
+
+One row can stand for more than one label. When two code pages produce the same
+text from the same bytes, the row carries the representative in `charset` and
+the other names in `also`:
+
+```json
+{"charset":"windows-1252","family":"Single-byte","score":52,
+ "confidence":0,"errors":0,"also":["latin1"]}
+```
+
+`also` is **absent** — not empty — when the row has a single name, so a consumer
+written against `charset` sees the same object it saw before 0.7.0. Treat the
+keys as an unordered set of names for one reading: `--fail-if-not latin1`
+accepts a file whose `charset` is `windows-1252` for exactly this reason.
 
 `repair`:
 
@@ -308,6 +326,7 @@ best.text()         // the decoded text
 best.score()        // 0..100 text plausibility
 best.confidence()   // 0..100, how far ahead of the runner-up
 best.errors()       // malformed sequences under this reading
+best.equivalent()   // Array[Charset], other names for this same reading
 
 @mojibake.detect_charset(bytes)                     // Charset?
 @mojibake.detect_charset_or(bytes, Charset::Utf8)   // Charset
@@ -325,10 +344,11 @@ Two helper functions answer the question a single label cannot:
 @mojibake.is_ascii_text(text)             // Bool
 ```
 
-`is_ambiguous` is true when the runner-up decodes the bytes to the same text
-and scores the same — not a worse guess, the same guess. `rows[0]` remains a
-valid answer, which is why `detect_charset` keeps returning it; a caller that
-reports confidence should report the tie instead.
+`is_ambiguous` is true when the winner carries `equivalent` labels, or when the
+runner-up decodes the bytes to the same text and scores the same — not a worse
+guess, the same guess. `rows[0]` remains a valid answer, which is why
+`detect_charset` keeps returning it; a caller that reports confidence should
+report the tie instead.
 
 ### Binary check
 
@@ -388,6 +408,13 @@ and whose byte range contains that page's: GB18030 inherits GBK's two-byte
 table, so every GBK file also reads cleanly as GB18030. Reporting that as a tie
 would make "ambiguous" the normal answer for Chinese text, so the wider page is
 only ranked when the bytes actually reach outside GBK.
+
+The opposite case is merged rather than dropped: two pages that are *not* in a
+containment relation and decode the bytes identically (windows-1252 and latin1,
+GBK and EUC-JP on kana) describe one reading, so they share one row and the
+other names go into `equivalent`. Only clean decodes are merged — two decoders
+that both failed and salvaged the same prefix are not evidence that the bytes
+are indifferent between them.
 
 ### Report rendering
 

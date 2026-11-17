@@ -15,6 +15,8 @@ how the project arrived at its current shape rather than only what it does.
 | 2026-11-13 | 0.6.1 | Toolchain migration (`#derive`, explicit `pub extend`, qualified test imports), CI hardened to `--deny-warn`, scope statement |
 | 2026-11-14 | 0.6.2 | Acceptance checklist, test record, runnable example, this document |
 | 2026-11-15 | 0.6.3 | Benchmarks and a labelled accuracy corpus; the corpus found a wrong answer on BOM-less UTF-16 CJK, which was then fixed behind a guard |
+| 2026-11-16 | 0.6.4 | `--json` objects announce their schema version; homepage and topics so the package can be found |
+| 2026-11-17 | 0.7.0 | One candidate row per reading: equivalent labels merge into `equivalent` / `also` instead of occupying a row each (Issue #1) |
 
 The order was not planned top-down. Each version started from a concrete
 question a reviewer or a user could ask, and ended with a command that answers
@@ -94,7 +96,8 @@ cannot fake.
   and 20 points ahead of every 8-bit reading; a mixed-script UTF-16 stream can
   still lose. Proving it in general requires evidence the bytes may not contain.
 - **Latin-1 vs windows-1252** on short Western text is genuinely undecidable;
-  the detector says so with low confidence instead of guessing.
+  the detector says so — one row, both names, confidence 0 — instead of guessing,
+  and `--fail-if-not` accepts either name.
 - **Streaming decode** is not implemented. The current API takes `Bytes`; a
   chunked API is the next natural step and would need state carried across
   chunks for all thirteen code pages.

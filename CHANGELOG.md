@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.7.0 — 2026-11-17
+
+Closes Issue #1. A tie used to cost two rows in the candidate table, so a
+short Western file spent two of its top three lines saying the same thing
+twice — once as `windows-1252`, once as `latin1` — and the actual runner-up
+fell off the table. The two labels are not two hypotheses: they are one reading
+with two names.
+
+### Changed
+
+- **A candidate row is a reading, not a label.** When two code pages decode the
+  bytes to byte-identical text at the same score and neither byte range
+  contains the other, they now share a row: `charset` holds the representative
+  and the new `Detection::equivalent()` holds the other names. Affects
+  windows-1252/latin-1 on Western text, GBK/EUC-JP on kana, and ASCII (where
+  all ASCII-compatible pages are one reading).
+- **`"also": ["latin1"]` on affected `--json` candidates.** The key is absent,
+  not empty, when a row has one name, so a consumer that reads `charset` sees
+  the same object it saw in 0.6.x. Adding a field does not bump `schema`.
+- **`confidence` is 0 when the label is a coin flip.** The text may be certain;
+  the name is not, and a number that says "85%" about an arbitrary choice is
+  the kind of wrong answer the project is supposed to avoid. `score` and
+  `errors` still describe the reading itself.
+- **`is_ambiguous` is true when the winner has `equivalent` labels**, not only
+  when the runner-up ties it. `--fail-if-not` already accepted any tied name
+  and now accepts `latin1` for a file whose `charset` is `windows-1252`.
+
+### Unchanged, deliberately
+
+- GB18030 is still *dropped* rather than merged when a file never leaves GBK's
+  range. Containment is not equivalence: the wider label has no evidence at
+  all, and listing it as an alias would claim the bytes are indifferent to a
+  distinction they never exercised.
+- Two decoders that both failed and salvaged the same prefix are not merged.
+  Same output from two failures is not evidence; folding them together would
+  hide that both wide readers rejected the stream.
+
+### Verification
+
+- 79 tests pass on wasm/js/native; three of them are new (the merge, the case
+  that must *not* merge, and the JSON field).
+- `accuracy_check.py` stays at top-1 100% (31/31). The two Western cases now
+  report as ties instead of guessing a label, which is the honest answer.
+- `e2e_check.py` 303/303 and `space_check.py` 2 351 159/2 351 159 unchanged —
+  this release touches ranking only, not decoding.
+
 ## 0.6.4 — 2026-11-16
 
 Closes the third item of the "what is deliberately unfinished" list: the

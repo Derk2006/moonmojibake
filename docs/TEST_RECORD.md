@@ -1,6 +1,6 @@
-# Test record — 0.6.4
+# Test record — 0.7.0
 
-Recorded on 2026-11-16 on Windows (Git Bash), from a clean `_build`. The
+Recorded on 2026-11-17 on Windows (Git Bash), from a clean `_build`. The
 numbers below are this run; the benchmark section was re-measured on 0.6.3 and
 its code paths were not touched since.
 
@@ -27,10 +27,10 @@ Zero warnings. This is the gate CI runs; a deprecation warning fails the build.
 ## Unit tests — four targets
 
 ```
-$ moon test                    Total tests: 76, passed: 76, failed: 0.
-$ moon test --target js        Total tests: 76, passed: 76, failed: 0.
-$ moon test --target wasm      Total tests: 76, passed: 76, failed: 0.
-$ moon test --target wasm-gc   Total tests: 76, passed: 76, failed: 0.
+$ moon test                    Total tests: 79, passed: 79, failed: 0.
+$ moon test --target js        Total tests: 79, passed: 79, failed: 0.
+$ moon test --target wasm      Total tests: 79, passed: 79, failed: 0.
+$ moon test --target wasm-gc   Total tests: 79, passed: 79, failed: 0.
 ```
 
 ## Builds — three backends

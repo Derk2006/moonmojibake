@@ -77,6 +77,7 @@ that the same bytes always decode to the same text.
 | Detection — ranking, confidence, BOM handling | ✅ up to 13 candidates per call |
 | Detection — Chinese/Japanese disambiguation | ✅ JIS X 0208 level-1 test on kana texts |
 | Detection — ties | ✅ reported as ties (`ambiguous`, `tied`), never as a confident guess |
+| Detection — equivalent labels | ✅ two names for one reading share a row (`also`), not two rows |
 | Detection — nested code pages | ✅ a file that never leaves GBK is reported as GBK, not GB18030 |
 | Repair — chained mojibake, up to 4 layers | ✅ returns the re-encode chain |
 | Repair — script guard | ✅ never swaps Chinese for Hangul or kana |
@@ -85,7 +86,7 @@ that the same bytes always decode to the same text.
 | CLI — `--json` on every subcommand | ✅ stable field names, for pipelines |
 | CLI — `--fail-if-not` | ✅ exit 2, so CI can reject a non-UTF-8 tree |
 | CLI — exit codes | ✅ 0 success, 1 usage/IO error, 2 assertion failed |
-| Unit tests | ✅ 76 passing (`moon test`) |
+| Unit tests | ✅ 79 passing (`moon test`) |
 | Runnable example | ✅ `moon run examples/detect_and_repair` (no file IO, every backend) |
 | Cross-check against CPython | ✅ 303/303 (`scripts/e2e_check.py`) |
 | Exhaustive byte-space check | ✅ 2 351 159/2 351 159, both directions (`scripts/space_check.py`) |
@@ -383,7 +384,7 @@ free of third-party licence questions.
 ## Testing
 
 ```sh
-moon test                        # 76 unit tests
+moon test                        # 79 unit tests
 moon build --target js
 python scripts/e2e_check.py      # 303 cross-checks against CPython
 python scripts/space_check.py    # 2 351 159 exhaustive checks, both directions
@@ -421,6 +422,11 @@ at the wrong character" instead of "does the sample happen to pass".
   prints `ambiguous — gbk and euc-jp …`, `--json` carries `ambiguous` and
   `tied`, and `--fail-if-not` accepts either name. Pure ASCII is the same
   situation by construction: every ASCII-compatible page agrees.
+- Those ties are one row, not several. Two labels that produce the same text
+  from the same bytes describe one reading, so `candidates` keeps one entry and
+  lists the other names in `also`. Before 0.7.0 a short Latin-1 file spent two
+  of its top three rows on `windows-1252` and `latin1` and pushed the real
+  runner-up out of view.
 - Western text shorter than a sentence is ambiguous for the same reason:
   Latin-1 and windows-1252 are identical for anything that does not use
   0x80–0x9F, and both look plausible under several code pages.

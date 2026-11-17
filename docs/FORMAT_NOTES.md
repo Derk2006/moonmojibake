@@ -235,7 +235,25 @@ page was tried last.
 `confidence = clamp((top - second) * 3, 0, 100)`, scaled down when the top score
 is below 40, and floored at 85 when the winner's text satisfies the script-
 exclusivity test with zero errors. A confidence of 0 means "the candidates are
-indistinguishable", which is the honest answer for ASCII.
+indistinguishable", which is the honest answer for ASCII. The number describes
+the *label*, not the text: when the winner carries `equivalent` names it is
+forced to 0, because the text can be certain while the name is a coin flip.
+
+### Two names for one reading share a row
+
+Ranking is over readings, not over labels. After the sort, two candidates that
+decoded the same bytes to byte-identical text at the same score are folded
+together whenever neither page's byte range contains the other's: the earlier
+one in `Charset::all()` keeps the row, the rest go into
+`Detection::equivalent`. windows-1252 and latin1 differ only in 0x80..0x9F, so a
+Western file that never uses those bytes is one reading with two names; GBK and
+EUC-JP agree on kana in JIS X 0208 rows 0xA4 and 0xA5 for the same reason.
+
+The merge is limited to clean decodes. Two decoders that both failed and
+salvaged the same prefix produce the same text by accident, and calling that
+indifference would hide the fact that both rejected the stream. Containment is
+not equivalence either — see the GBK case below — so a narrower page still drops
+its wider shadow instead of recording it as an alias.
 
 ### The UTF-8 rule
 
