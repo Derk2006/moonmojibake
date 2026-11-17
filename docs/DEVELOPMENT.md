@@ -16,7 +16,7 @@ how the project arrived at its current shape rather than only what it does.
 | 2026-11-14 | 0.6.2 | Acceptance checklist, test record, runnable example, this document |
 | 2026-11-15 | 0.6.3 | Benchmarks and a labelled accuracy corpus; the corpus found a wrong answer on BOM-less UTF-16 CJK, which was then fixed behind a guard |
 | 2026-11-16 | 0.6.4 | `--json` objects announce their schema version; homepage and topics so the package can be found |
-| 2026-11-17 | 0.7.0 | One candidate row per reading: equivalent labels merge into `equivalent` / `also` instead of occupying a row each (Issue #1) |
+| 2026-11-17 | 0.7.0 | One candidate row per reading: equivalent labels merge into `equivalent` / `also` instead of occupying a row each (Issue #1); toolchain moved to 2026-11-17 after CI caught a deprecation the pinned local compiler did not know |
 
 The order was not planned top-down. Each version started from a concrete
 question a reviewer or a user could ask, and ended with a command that answers
@@ -88,6 +88,12 @@ cannot fake.
 - **Toolchain deprecations.** `} derive(...)`, implicit trait-method promotion,
   and implicit imports in blackbox tests all became warnings that `--deny-warn`
   turns into errors. Migrated in 0.6.1 rather than pinning an old compiler.
+- **Toolchain drift between local and CI.** CI installs the latest MoonBit while
+  local builds used a pinned copy, so `StringBuilder(size_hint=)` compiled
+  cleanly here and failed the gate there. Found by reading the failed run's
+  log, not by guessing; fixed by moving the local toolchain to the same
+  version instead of pinning CI, so the next deprecation surfaces on the next
+  local build rather than in review.
 
 ## What is deliberately unfinished
 

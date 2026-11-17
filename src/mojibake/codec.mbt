@@ -50,7 +50,7 @@ fn replacement_char() -> Char {
 /// Decode a two-byte code page.  ASCII passes through, Shift_JIS half-width
 /// katakana are computed, everything else goes through the tables.
 fn decode_double_byte(bytes : Bytes, charset : Charset) -> Decoded {
-  let out = StringBuilder(size_hint=bytes.length() + 8)
+  let out = StringBuilder(capacity=bytes.length() + 8)
   let length = bytes.length()
   let mut index = 0
   let mut errors = 0
@@ -195,7 +195,7 @@ fn decode_utf16(bytes : Bytes, little_endian : Bool) -> Decoded {
 /// lossy decoder would happily produce text from the prefix.  Counting the
 /// leftover bytes as errors keeps such a stream from winning detection.
 fn decode_utf32(bytes : Bytes, little_endian : Bool) -> Decoded {
-  let out = StringBuilder(size_hint=bytes.length() / 2 + 8)
+  let out = StringBuilder(capacity=bytes.length() / 2 + 8)
   let length = bytes.length()
   let mut index = 0
   let mut errors = 0
@@ -246,7 +246,7 @@ fn decode_utf32(bytes : Bytes, little_endian : Bool) -> Decoded {
 
 ///|
 fn decode_latin1(bytes : Bytes) -> Decoded {
-  let out = StringBuilder(size_hint=bytes.length() + 8)
+  let out = StringBuilder(capacity=bytes.length() + 8)
   let length = bytes.length()
   let mut index = 0
   while index < length {
@@ -258,7 +258,7 @@ fn decode_latin1(bytes : Bytes) -> Decoded {
 
 ///|
 fn decode_cp1252(bytes : Bytes) -> Decoded {
-  let out = StringBuilder(size_hint=bytes.length() + 8)
+  let out = StringBuilder(capacity=bytes.length() + 8)
   let length = bytes.length()
   let mut index = 0
   let mut errors = 0

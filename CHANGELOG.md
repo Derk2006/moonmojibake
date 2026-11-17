@@ -26,6 +26,10 @@ with two names.
 - **`is_ambiguous` is true when the winner has `equivalent` labels**, not only
   when the runner-up ties it. `--fail-if-not` already accepted any tied name
   and now accepts `latin1` for a file whose `charset` is `windows-1252`.
+- **Toolchain moved to `moon 0.1.20261117` / `moonc v0.10.21+06da1ed44`.**
+  `StringBuilder(size_hint=...)` is deprecated in favour of `capacity=`. CI
+  installs the latest toolchain, so the old spelling turned the zero-warning
+  gate red on every push; the four call sites are updated. No behaviour change.
 
 ### Unchanged, deliberately
 

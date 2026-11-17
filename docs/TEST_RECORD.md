@@ -1,16 +1,17 @@
 # Test record — 0.7.0
 
 Recorded on 2026-11-17 on Windows (Git Bash), from a clean `_build`. The
-numbers below are this run; the benchmark section was re-measured on 0.6.3 and
-its code paths were not touched since.
+numbers below are this run, including the benchmarks: they were re-measured
+after the toolchain moved to `moonc v0.10.21`, because a compiler change is
+exactly the kind of thing that invalidates an older table.
 
 ## Toolchain
 
 ```
 $ moon version --all
-moon 0.1.20261104 (940aa18 2026-11-04)
-moonc v0.10.20+65efd5b93 (2026-11-05)
-moonrun 0.1.20261104 (940aa18 2026-11-04)
+moon 0.1.20261117 (eb64713 2026-11-17)
+moonc v0.10.21+06da1ed44 (2026-11-16)
+moonrun 0.1.20261117 (eb64713 2026-11-17)
 
 Feature flags enabled: rr_moon_mod,rr_moon_pkg
 ```
@@ -131,12 +132,12 @@ parsing the output rather than grepping it, so a malformed object fails too.
 
 ```
 $ moon bench benches --release
-bench: decode gbk 1KiB     6.00 µs ± 103 ns     in 10 × 15852 runs
-bench: detect 1KiB gbk   131.62 µs ± 934 ns     in 10 ×   751 runs
-bench: detect 32KiB gbk    4.08 ms ± 27 µs      in 10 ×    25 runs
-bench: detect 1KiB utf8  218.38 µs ± 6.79 µs    in 10 ×   452 runs
-bench: repair 1KiB       708.68 µs ± 10.75 µs   in 10 ×   147 runs
-bench: encode gb18030      5.06 µs ± 235 ns     in 10 × 20742 runs
+bench: decode gbk 1KiB     5.83 µs ± 205 ns     in 10 × 16248 runs
+bench: detect 1KiB gbk   120.00 µs ± 5.03 µs    in 10 ×   810 runs
+bench: detect 32KiB gbk    3.82 ms ± 174 µs     in 10 ×    26 runs
+bench: detect 1KiB utf8  190.59 µs ± 4.84 µs    in 10 ×   505 runs
+bench: repair 1KiB       686.09 µs ± 16.64 µs   in 10 ×   153 runs
+bench: encode gb18030      5.13 µs ± 115 ns     in 10 × 19676 runs
 Total tests: 6, passed: 6, failed: 0.
 ```
 

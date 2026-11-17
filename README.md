@@ -91,7 +91,7 @@ that the same bytes always decode to the same text.
 | Cross-check against CPython | ✅ 303/303 (`scripts/e2e_check.py`) |
 | Exhaustive byte-space check | ✅ 2 351 159/2 351 159, both directions (`scripts/space_check.py`) |
 | Dependencies | ✅ MoonBit core only, zero FFI |
-| Toolchain | ✅ `moon 0.1.20261104` / `moonc v0.10.20+65efd5b93`, `moon check --deny-warn` clean |
+| Toolchain | ✅ `moon 0.1.20261117` / `moonc v0.10.21+06da1ed44`, `moon check --deny-warn` clean |
 | License | ✅ Apache-2.0 |
 
 ---
