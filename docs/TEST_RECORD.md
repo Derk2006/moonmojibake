@@ -166,14 +166,20 @@ guess. CI runs the same command as a gate.
 
 ## Install from mooncakes
 
-`mooncakes.io` reports `Derk2006/moonmojibake` at `0.6.4`, `build_status:
-success`. In an empty project:
+`mooncakes.io` reports `Derk2006/moonmojibake` at `0.7.0`, not yanked. In an
+empty project the new field is reachable through the published package, which
+is the part a release test can get wrong:
 
 ```
-$ moon add Derk2006/moonmojibake@0.6.4
-$ moon test        # decode, detect, repair and the JSON schema assertion all pass
+$ moon new verify070 --user verify
+$ moon add Derk2006/moonmojibake@0.7.0
+$ moon test
 Total tests: 1, passed: 1, failed: 0.
 ```
+
+The test calls `detect`, reads `rows[0].charset()` and `rows[0].equivalent()`
+from the downloaded package — a compile error there would mean the published
+`.mbti` does not carry the 0.7.0 interface.
 
 The consuming `src/moon.pkg` needs the package path, not the module root:
 
