@@ -74,7 +74,7 @@ that the same bytes always decode to the same text.
 | Code pages — EUC-JP | ✅ 6 879 two-byte + 6 067 JIS X 0212 cells in a 94×94 table |
 | Code pages — GB18030 four-byte form | ✅ 1 087 996 sequences: BMP run table + arithmetic supplementary planes |
 | Code pages — UTF-8, UTF-16LE/BE, UTF-32LE/BE, Latin-1, windows-1252 | ✅ |
-| Detection — ranking, confidence, BOM handling | ✅ up to 13 candidates per call |
+| Detection — ranking, confidence, BOM handling | ✅ up to 13 readings per call (13 labels, fewer rows) |
 | Detection — Chinese/Japanese disambiguation | ✅ JIS X 0208 level-1 test on kana texts |
 | Detection — ties | ✅ reported as ties (`ambiguous`, `tied`), never as a confident guess |
 | Detection — equivalent labels | ✅ two names for one reading share a row (`also`), not two rows |
