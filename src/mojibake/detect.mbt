@@ -165,6 +165,7 @@ pub fn detect(bytes : Bytes) -> Array[Detection] {
       score: 100,
       errors: 0,
       confidence: 100,
+      equivalent: [],
     })
     return results
   }
@@ -194,6 +195,7 @@ pub fn detect(bytes : Bytes) -> Array[Detection] {
       score,
       errors: decoded.errors,
       confidence: 0,
+      equivalent: [],
     })
   }
   // UTF-16 is halved above unless it can prove itself with an ASCII pattern,
@@ -232,6 +234,7 @@ pub fn detect(bytes : Bytes) -> Array[Detection] {
           score: full,
           errors: row.errors,
           confidence: 0,
+          equivalent: [],
         }
       }
     }
@@ -249,22 +252,48 @@ pub fn detect(bytes : Bytes) -> Array[Detection] {
     results[j + 1] = item
     i = i + 1
   }
-  // GBK and GB18030 decode the same bytes to the same text whenever a file
-  // never leaves GBK's range, which is almost every Chinese file in existence.
-  // Without this pass every one of them would be reported as ambiguous, and
-  // "ambiguous" would stop meaning anything.  Dropping the wider reading is
-  // not a guess: the bytes carry no evidence of using its extra room.
+  // Two labels that decode the bytes to byte-identical text at the same score
+  // are one reading, not two candidates.  Listing both was a real defect: a
+  // short Latin-1 file produced "windows-1252" and "latin1" as separate rows,
+  // which pushed the actual runner-up out of the top three and made the count
+  // of candidates a function of how many aliases a byte range happens to have.
+  //
+  // The GBK / GB18030 case is deliberately *not* a merge.  GB18030 is a strict
+  // superset, so when a file never leaves GBK's range the wider label has no
+  // evidence at all; recording it as an equivalent would be claiming the bytes
+  // are indifferent when they are simply narrower than the decoder.
   let ranked : Array[Detection] = []
   for row in results {
-    let mut shadowed = false
-    for other in results {
-      if other.charset != row.charset &&
-        other.text == row.text &&
-        other.charset.narrows(row.charset) {
-        shadowed = true
+    let mut absorbed = false
+    let mut index = 0
+    while index < ranked.length() && !absorbed {
+      let kept = ranked[index]
+      if kept.text == row.text && kept.score == row.score {
+        if kept.charset.narrows(row.charset) || row.charset.narrows(kept.charset) {
+          // Same text, one byte range inside the other: the wider label has no
+          // evidence, so the row is dropped rather than recorded as an alias.
+          absorbed = true
+        } else if kept.errors == 0 && row.errors == 0 {
+          // Only clean decodes are readings.  Two decoders that both failed
+          // and salvaged the same prefix are not evidence that the bytes are
+          // indifferent between them, and folding them together would hide
+          // the fact that both wide readers rejected the stream.
+          let aliases = kept.equivalent.copy()
+          aliases.push(row.charset)
+          ranked[index] = {
+            charset: kept.charset,
+            text: kept.text,
+            score: kept.score,
+            errors: kept.errors,
+            confidence: kept.confidence,
+            equivalent: aliases,
+          }
+          absorbed = true
+        }
       }
+      index = index + 1
     }
-    if !shadowed {
+    if !absorbed {
       ranked.push(row)
     }
   }
@@ -290,12 +319,19 @@ pub fn detect(bytes : Bytes) -> Array[Detection] {
         confidence = 85
       }
     }
+    // Confidence is confidence in the *label*, and a label that another code
+    // page reproduces exactly is a convention, not a finding.  The text is
+    // certain; the name is a coin flip, so the number has to say so.
+    if ranked[0].equivalent.length() > 0 {
+      confidence = 0
+    }
     ranked[0] = {
       charset: ranked[0].charset,
       text: ranked[0].text,
       score: top,
       errors: ranked[0].errors,
       confidence,
+      equivalent: ranked[0].equivalent,
     }
   }
   ranked

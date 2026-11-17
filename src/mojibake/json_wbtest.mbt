@@ -31,6 +31,19 @@ test "detection json reports a tie honestly" {
 }
 
 ///|
+test "detection json names the other label of a merged candidate" {
+  // One reading, two names: the row carries `also`, so a consumer can accept
+  // either label without knowing that windows-1252 and latin-1 agree here.
+  let bytes = encode("café déjà vu, naïve façade", Charset::Latin1).unwrap()
+  let rows = detect(bytes)
+  let text = detection_json("fr.txt", bytes.length(), rows)
+  assert_true(text.contains("\"also\":[\"latin1\"]"))
+  assert_true(text.contains("\"ambiguous\":true"))
+  // The alias is a name for the same candidate, so it must not get a row.
+  assert_true(!text.contains("{\"charset\":\"latin1\""))
+}
+
+///|
 test "detection json is empty-safe" {
   let rows : Array[Detection] = []
   let text = detection_json("empty.txt", 0, rows)

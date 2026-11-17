@@ -486,6 +486,41 @@ test "pure kana is ambiguous, not a confident gbk" {
 }
 
 ///|
+test "latin-1 and windows-1252 are one candidate, not two" {
+  // 0xE9 is "é" in both code pages, and the bytes never enter 0x80..0x9F where
+  // the two disagree.  Two rows here would be two names for one reading, and
+  // the duplicate would push a real runner-up out of the table.
+  let bytes = @mojibake.encode(
+    "café déjà vu, naïve façade",
+    @mojibake.Charset::Latin1,
+  ).unwrap()
+  let ranked = @mojibake.detect(bytes)
+  assert_eq(ranked[0].charset(), @mojibake.Charset::Cp1252)
+  assert_eq(ranked[0].equivalent(), [@mojibake.Charset::Latin1])
+  assert_eq(ranked[0].confidence(), 0)
+  assert_true(@mojibake.is_ambiguous(ranked))
+  let mut same_reading_rows = 0
+  for row in ranked {
+    if row.text() == ranked[0].text() && row.score() == ranked[0].score() {
+      same_reading_rows = same_reading_rows + 1
+    }
+  }
+  assert_eq(same_reading_rows, 1)
+  assert_eq(
+    @mojibake.ambiguous_candidates(ranked),
+    [@mojibake.Charset::Cp1252, @mojibake.Charset::Latin1],
+  )
+}
+
+///|
+test "a byte only windows-1252 defines keeps the two labels apart" {
+  // 0x80 is "€" in windows-1252 and U+0080 in latin-1: the texts differ, so
+  // the labels carry different readings and must not be merged.
+  let ranked = @mojibake.detect(b"5\x80 5")
+  assert_true(!ranked[0].equivalent().contains(@mojibake.Charset::Latin1))
+}
+
+///|
 test "kana with kanji is not ambiguous" {
   let bytes = @mojibake.encode("これは日本語の文章です。", @mojibake.Charset::EucJp).unwrap()
   let ranked = @mojibake.detect(bytes)
@@ -499,9 +534,16 @@ test "plain ascii is ambiguous in every code page" {
   let ranked = @mojibake.detect(b"plain ascii")
   assert_true(@mojibake.is_ambiguous(ranked))
   assert_true(@mojibake.is_ascii_text(ranked[0].text()))
-  // UTF-16 and UTF-32 are still ranked, but their text is not the same, so
-  // they must not be offered as tied candidates.
-  assert_true(@mojibake.ambiguous_candidates(ranked).length() < ranked.length())
+  // The ASCII-compatible labels are one candidate with many names, not many
+  // candidates: every one of them decodes these bytes to the same string.
+  let tied = @mojibake.ambiguous_candidates(ranked)
+  assert_true(tied.contains(@mojibake.Charset::Utf8))
+  assert_true(tied.contains(@mojibake.Charset::Gbk))
+  assert_true(tied.contains(@mojibake.Charset::Latin1))
+  // UTF-16 and UTF-32 are still ranked, but their text differs, so they must
+  // not be offered as tied candidates.
+  assert_true(!tied.contains(@mojibake.Charset::Utf16Le))
+  assert_true(!tied.contains(@mojibake.Charset::Utf32Be))
 }
 
 ///|

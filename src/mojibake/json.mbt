@@ -129,6 +129,20 @@ pub fn detection_json(source : String, byte_count : Int, rows : Array[Detection]
     out.write_string(row.confidence.to_string())
     out.write_string(",\"errors\":")
     out.write_string(row.errors.to_string())
+    // Absent, not empty, when there is nothing to say: a consumer that only
+    // reads `charset` should see exactly the object it saw before 0.7.0.
+    if row.equivalent.length() > 0 {
+      out.write_string(",\"also\":[")
+      let mut alias_index = 0
+      while alias_index < row.equivalent.length() {
+        if alias_index > 0 {
+          out.write_string(",")
+        }
+        out.write_string(quoted(row.equivalent[alias_index].name()))
+        alias_index = alias_index + 1
+      }
+      out.write_string("]")
+    }
     out.write_string("}")
     index = index + 1
   }

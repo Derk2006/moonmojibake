@@ -194,17 +194,34 @@ pub fn Decoded::chars(self : Decoded) -> Int {
 
 ///|
 /// One row of a `detect` report.
+///
+/// A row is one *reading* of the bytes, not one label.  When two code pages
+/// turn the same bytes into the same text with the same score, neither is a
+/// better guess than the other, so they share a row: `charset` is the
+/// representative and `equivalent` lists the other names for the same reading.
+/// Before this existed, a Latin-1 file showed up as two candidates, and the
+/// duplicate pushed the real runner-up out of the top three.
 pub struct Detection {
   charset : Charset
   text : String
   score : Int
   errors : Int
   confidence : Int
+  /// Other labels that decode these bytes to exactly `text` with exactly
+  /// `score`.  Empty for the common case.
+  equivalent : Array[Charset]
 }
 
 ///|
 pub fn Detection::charset(self : Detection) -> Charset {
   self.charset
+}
+
+///|
+/// The other names for this same reading; empty unless the bytes are
+/// genuinely indifferent between two code pages.
+pub fn Detection::equivalent(self : Detection) -> Array[Charset] {
+  self.equivalent
 }
 
 ///|
@@ -238,7 +255,17 @@ pub fn Detection::confidence(self : Detection) -> Int {
 /// first of the two as "the" answer would be reporting a coin flip as a
 /// finding; callers that need one name can still take `rows[0]`, but a caller
 /// that reports confidence should say the input is ambiguous instead.
+///
+/// Since 0.7.0 the tied labels arrive as one row plus `equivalent`, so the
+/// first test is the one that fires in practice; the second still covers a
+/// tie between two *different* readings that happen to score the same.
 pub fn is_ambiguous(rows : Array[Detection]) -> Bool {
+  if rows.length() < 1 {
+    return false
+  }
+  if rows[0].equivalent.length() > 0 {
+    return true
+  }
   if rows.length() < 2 {
     return false
   }
@@ -270,8 +297,18 @@ pub fn ambiguous_candidates(rows : Array[Detection]) -> Array[Charset] {
     return out
   }
   let top = rows[0]
+  out.push(top.charset)
+  for other in top.equivalent {
+    out.push(other)
+  }
+  // After the 0.7.0 merge this loop normally finds nothing.  It still runs so
+  // that a future scoring change cannot quietly lose a tie: any later row
+  // that decodes to the same text at the same score is the same reading.
   for row in rows {
-    if row.score == top.score && row.text == top.text {
+    if row.score == top.score &&
+      row.text == top.text &&
+      row.charset != top.charset &&
+      !out.contains(row.charset) {
       out.push(row.charset)
     }
   }

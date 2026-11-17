@@ -52,4 +52,25 @@ fn main {
   } else {
     println("  unexpected: this sample is supposed to be a tie")
   }
+
+  // 5. Aliases — one reading under two names is one row, not two.
+  println("")
+  println("aliases")
+  let western = @mojibake.encode(
+    "café déjà vu, naïve façade",
+    @mojibake.Charset::Latin1,
+  ).unwrap()
+  let western_rows = @mojibake.detect(western)
+  let top = western_rows[0]
+  println("  guess: \{top.charset().name()}  score=\{top.score()}")
+  if top.equivalent().length() > 0 {
+    for other in top.equivalent() {
+      println("  same reading under: \{other.name()}")
+    }
+    println(
+      "  confidence: \{top.confidence()}% — the text is certain, the name is not",
+    )
+  } else {
+    println("  unexpected: this sample is supposed to have two names")
+  }
 }

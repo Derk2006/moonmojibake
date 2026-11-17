@@ -110,9 +110,11 @@ pub struct Detection {
   score : Int32
   errors : Int32
   confidence : Int32
+  equivalent : Array[Charset]
 }
 pub fn Detection::charset(Self) -> Charset
 pub fn Detection::confidence(Self) -> Int32
+pub fn Detection::equivalent(Self) -> Array[Charset]
 pub fn Detection::errors(Self) -> Int32
 pub fn Detection::score(Self) -> Int32
 pub fn Detection::text(Self) -> String
