@@ -1,9 +1,9 @@
-# Test record — 0.7.0
+# Test record — 0.7.1
 
-Recorded on 2026-11-17 on Windows (Git Bash), from a clean `_build`. The
-numbers below are this run, including the benchmarks: they were re-measured
-after the toolchain moved to `moonc v0.10.21`, because a compiler change is
-exactly the kind of thing that invalidates an older table.
+Recorded on 2026-11-18 on Windows (Git Bash), from a clean `_build`. The
+numbers below are this run, including the benchmarks: 0.7.1 changes how much
+work `detect` does, so the previous table would describe code that no longer
+exists.
 
 ## Toolchain
 
@@ -28,10 +28,10 @@ Zero warnings. This is the gate CI runs; a deprecation warning fails the build.
 ## Unit tests — four targets
 
 ```
-$ moon test                    Total tests: 79, passed: 79, failed: 0.
-$ moon test --target js        Total tests: 79, passed: 79, failed: 0.
-$ moon test --target wasm      Total tests: 79, passed: 79, failed: 0.
-$ moon test --target wasm-gc   Total tests: 79, passed: 79, failed: 0.
+$ moon test                    Total tests: 84, passed: 84, failed: 0.
+$ moon test --target js        Total tests: 84, passed: 84, failed: 0.
+$ moon test --target wasm      Total tests: 84, passed: 84, failed: 0.
+$ moon test --target wasm-gc   Total tests: 84, passed: 84, failed: 0.
 ```
 
 ## Builds — three backends
@@ -132,17 +132,36 @@ parsing the output rather than grepping it, so a malformed object fails too.
 
 ```
 $ moon bench benches --release
-bench: decode gbk 1KiB     5.83 µs ± 205 ns     in 10 × 16248 runs
-bench: detect 1KiB gbk   120.00 µs ± 5.03 µs    in 10 ×   810 runs
-bench: detect 32KiB gbk    3.82 ms ± 174 µs     in 10 ×    26 runs
-bench: detect 1KiB utf8  190.59 µs ± 4.84 µs    in 10 ×   505 runs
-bench: repair 1KiB       686.09 µs ± 16.64 µs   in 10 ×   153 runs
-bench: encode gb18030      5.13 µs ± 115 ns     in 10 × 19676 runs
+bench: decode gbk 1KiB     4.81 µs ±  78 ns     in 10 × 20858 runs
+bench: detect 1KiB gbk    77.76 µs ± 3.34 µs    in 10 ×  1345 runs
+bench: detect 32KiB gbk    2.20 ms ± 98 µs      in 10 ×    43 runs
+bench: detect 1KiB utf8  156.57 µs ± 18.50 µs   in 10 ×   634 runs
+bench: repair 1KiB       498.86 µs ± 3.14 µs    in 10 ×   187 runs
+bench: encode gb18030      4.14 µs ± 116 ns     in 10 × 23481 runs
 Total tests: 6, passed: 6, failed: 0.
 ```
 
 Throughput and the js-backend comparison are in `docs/BENCHMARK.md`. Absolute
 times are machine-dependent; the repository records the ratios, not a promise.
+
+### The speed-up is checked against the old binary, not assumed
+
+Three of the 0.7.1 changes remove work rather than make it cheaper, which is
+also the easiest way to change an answer by accident. So the previous release
+was built from `HEAD` in a separate worktree and both CLIs were run over the
+same inputs, comparing `detect --json` byte for byte:
+
+```
+395/395 inputs produced identical output
+```
+
+Inputs: the eight samples, seven texts in thirteen encodings at three lengths,
+random byte strings over every length from 0 to 8 plus 16/31/32/33/64/127, and
+the same strings with every 0x80..0x9F byte replaced — that last set exists to
+exercise the windows-1252 / latin-1 reuse path, which no ordinary sample
+reaches. The comparison script was throwaway; the two `detect_wbtest.mbt`
+proofs it relies on (table agreement, scan agreement) are in the repository and
+run on every `moon test`.
 
 ## Detection accuracy
 

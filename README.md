@@ -86,7 +86,7 @@ that the same bytes always decode to the same text.
 | CLI — `--json` on every subcommand | ✅ stable field names, for pipelines |
 | CLI — `--fail-if-not` | ✅ exit 2, so CI can reject a non-UTF-8 tree |
 | CLI — exit codes | ✅ 0 success, 1 usage/IO error, 2 assertion failed |
-| Unit tests | ✅ 79 passing (`moon test`) |
+| Unit tests | ✅ 84 passing (`moon test`) |
 | Runnable example | ✅ `moon run examples/detect_and_repair` (no file IO, every backend) |
 | Cross-check against CPython | ✅ 303/303 (`scripts/e2e_check.py`) |
 | Exhaustive byte-space check | ✅ 2 351 159/2 351 159, both directions (`scripts/space_check.py`) |
@@ -384,7 +384,7 @@ free of third-party licence questions.
 ## Testing
 
 ```sh
-moon test                        # 79 unit tests
+moon test                        # 84 unit tests
 moon build --target js
 python scripts/e2e_check.py      # 303 cross-checks against CPython
 python scripts/space_check.py    # 2 351 159 exhaustive checks, both directions

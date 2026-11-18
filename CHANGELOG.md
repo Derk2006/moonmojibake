@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.7.1 — 2026-11-18
+
+Closes Issue #2. `detect` decoded all thirteen code pages in full and then
+scored all thirteen texts, which is the reliable design and also the ceiling:
+6.2–8.9 MB/s depending on backend. The speed-up here does not remove any of
+that checking — it removes work that was being done twice.
+
+### Changed
+
+- **The four wide-encoding evidence scans are one scan.** UTF-16LE/BE and
+  UTF-32LE/BE each walked the whole input asking the same question about the
+  same bytes. One loop over four bytes now answers all four. It is the same
+  arithmetic, including the 2- and 3-byte tails, and `detect_wbtest.mbt`
+  asserts it against the single-purpose versions so a future edit cannot drift.
+- **`text_score` no longer re-walks the text for `exclusive_script`.** It had
+  already counted ideographs, kana and hangul for the script signal; the
+  exclusivity signal now reuses those counts instead of scanning again.
+- **GBK reuses nothing, but GB18030 reuses GBK.** Every mapping GBK defines is
+  the same mapping in GB18030 — checked slot by slot in `detect_wbtest.mbt`
+  (21 791 shared, 2 149 added) — and a GBK decode with zero errors cannot have
+  touched a four-byte form, because that form needs a digit where GBK allows no
+  trail byte. So when GBK is clean, the GB18030 decode and its score are
+  carried over instead of recomputed.
+- **ISO-8859-1 reuses windows-1252 when no byte is in 0x80..0x9F.** That range
+  is the only place the two pages differ.
+- **`detect` 32 KiB: 3.18 ms → 2.20 ms (wasm), 7.09 ms → 4.57 ms (js).**
+  1 KiB: 100.31 µs → 77.76 µs (wasm). Exact numbers and the js table are in
+  `docs/BENCHMARK.md`.
+
+### Verification
+
+- `detect --json` compared byte for byte against the 0.7.0 binary over 395
+  inputs: identical on all 395. The inputs include random byte strings with
+  every 0x80..0x9F byte replaced, which is the only way to reach the
+  windows-1252 reuse path from a synthetic file.
+- 84 tests × 4 targets; accuracy 31/31 top-1; e2e 303/303; byte space
+  2 351 159/2 351 159.
+
 ## 0.7.0 — 2026-11-17
 
 Closes Issue #1. A tie used to cost two rows in the candidate table, so a

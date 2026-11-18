@@ -17,6 +17,7 @@ how the project arrived at its current shape rather than only what it does.
 | 2026-11-15 | 0.6.3 | Benchmarks and a labelled accuracy corpus; the corpus found a wrong answer on BOM-less UTF-16 CJK, which was then fixed behind a guard |
 | 2026-11-16 | 0.6.4 | `--json` objects announce their schema version; homepage and topics so the package can be found |
 | 2026-11-17 | 0.7.0 | One candidate row per reading: equivalent labels merge into `equivalent` / `also` instead of occupying a row each (Issue #1); toolchain moved to 2026-11-17 after CI caught a deprecation the pinned local compiler did not know |
+| 2026-11-18 | 0.7.1 | `detect` stops doing three pieces of work twice: four wide-encoding scans become one, `text_score` reuses the script counts it already had, and GB18030 / ISO-8859-1 reuse the GBK / windows-1252 decode when the bytes prove they must agree. 32 KiB 3.18 ms → 2.20 ms, output identical on 395/395 inputs (Issue #2) |
 
 The order was not planned top-down. Each version started from a concrete
 question a reviewer or a user could ask, and ended with a command that answers
