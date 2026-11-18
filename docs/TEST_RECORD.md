@@ -185,20 +185,23 @@ guess. CI runs the same command as a gate.
 
 ## Install from mooncakes
 
-`mooncakes.io` reports `Derk2006/moonmojibake` at `0.7.0`, not yanked. In an
-empty project the new field is reachable through the published package, which
-is the part a release test can get wrong:
+`mooncakes.io` reports `Derk2006/moonmojibake` at `0.7.1`, not yanked. In an
+empty project the published package is exercised from the outside, which is the
+part a release test can get wrong:
 
 ```
-$ moon new verify070 --user verify
-$ moon add Derk2006/moonmojibake@0.7.0
+$ moon new verify071 --user verify
+$ moon add Derk2006/moonmojibake@0.7.1
 $ moon test
-Total tests: 1, passed: 1, failed: 0.
+Total tests: 2, passed: 2, failed: 0.
 ```
 
-The test calls `detect`, reads `rows[0].charset()` and `rows[0].equivalent()`
-from the downloaded package — a compile error there would mean the published
-`.mbti` does not carry the 0.7.0 interface.
+The two assertions check the parts this release could have broken from the
+outside: `detect` on GBK bytes still returns `gbk` with the right text and an
+empty `equivalent()`, and the UTF-32LE padding test still wins for four-byte
+code units — that second one goes through the merged `wide_evidence` scan, so
+a package whose `.mbti` or behaviour drifted would fail here rather than in
+review.
 
 The consuming `src/moon.pkg` needs the package path, not the module root:
 
