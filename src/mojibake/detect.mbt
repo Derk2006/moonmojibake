@@ -67,61 +67,101 @@ fn bom_charset(bytes : Bytes) -> Charset? {
 }
 
 ///|
-/// Look for the alternating-zero pattern that UTF-16 produces for Latin text.
+/// The four wide-encoding tests, answered from one pass over the bytes.
 ///
-/// UTF-16 has no way to prove itself without a BOM: any even-length byte
-/// stream decodes into *something*, and arbitrary pairs land in Hangul or in
-/// the CJK blocks, where they look surprisingly plausible.  So instead of
-/// trusting the score, UTF-16 has to show evidence — at least half of its
-/// code units should have a zero high byte.
-fn utf16_evidence(bytes : Bytes, little_endian : Bool) -> Bool {
-  let length = bytes.length()
-  if length < 4 || length % 2 != 0 {
-    return false
-  }
-  let mut ascii_units = 0
-  let mut units = 0
-  let mut index = 0
-  while index + 1 < length {
-    let first = bytes[index].to_int()
-    let second = bytes[index + 1].to_int()
-    let high = if little_endian { second } else { first }
-    let low = if little_endian { first } else { second }
-    if high == 0 && low != 0 {
-      ascii_units = ascii_units + 1
-    }
-    units = units + 1
-    index = index + 2
-  }
-  units > 0 && ascii_units * 2 >= units
+/// UTF-16 and UTF-32 have no way to prove themselves without a BOM: any
+/// even-length stream decodes into *something*, and arbitrary pairs land in
+/// Hangul or in the CJK blocks, where they look surprisingly plausible.  So
+/// instead of trusting the score, they have to show evidence — at least half
+/// of the UTF-16 code units should have a zero high byte, and at least half of
+/// the UTF-32 code units should have both high bytes zero.  That is what keeps
+/// a GBK file from being read as pairs of Hangul syllables.
+///
+/// These were four full scans of the input, each looking at the same bytes
+/// from a different angle.  Folding them into one loop over four bytes at a
+/// time is the same arithmetic on the same values — `detect_wbtest.mbt` holds
+/// the single-purpose versions and asserts the two agree byte for byte,
+/// including the 2- and 3-byte tails where the two shapes disagree about how
+/// much of the input is a code unit.
+priv struct WideEvidence {
+  utf16_le : Bool
+  utf16_be : Bool
+  utf32_le : Bool
+  utf32_be : Bool
 }
 
 ///|
-/// UTF-32 is even easier to fake than UTF-16: any stream whose length is a
-/// multiple of four decodes into code points, and the plausible ones (ASCII,
-/// CJK, Hangul) all live in the low 16 bits.  Real UTF-32 text therefore has
-/// to *show* it: at least half of the code units must have zero high bytes.
-fn utf32_evidence(bytes : Bytes, little_endian : Bool) -> Bool {
+fn wide_evidence(bytes : Bytes) -> WideEvidence {
   let length = bytes.length()
-  if length < 8 || length % 4 != 0 {
-    return false
-  }
-  let mut zero_high = 0
-  let mut units = 0
+  let mut u16_units = 0
+  let mut u16le_ascii = 0
+  let mut u16be_ascii = 0
+  let mut u32_units = 0
+  let mut u32le_zero = 0
+  let mut u32be_zero = 0
   let mut index = 0
-  while index + 3 < length {
+  let quads = length - length % 4
+  while index < quads {
     let b0 = bytes[index].to_int()
     let b1 = bytes[index + 1].to_int()
     let b2 = bytes[index + 2].to_int()
     let b3 = bytes[index + 3].to_int()
-    let high = if little_endian { b2 + b3 } else { b0 + b1 }
-    if high == 0 {
-      zero_high = zero_high + 1
+    if b1 == 0 && b0 != 0 {
+      u16le_ascii = u16le_ascii + 1
     }
-    units = units + 1
+    if b0 == 0 && b1 != 0 {
+      u16be_ascii = u16be_ascii + 1
+    }
+    if b3 == 0 && b2 != 0 {
+      u16le_ascii = u16le_ascii + 1
+    }
+    if b2 == 0 && b3 != 0 {
+      u16be_ascii = u16be_ascii + 1
+    }
+    u16_units = u16_units + 2
+    if b2 + b3 == 0 {
+      u32le_zero = u32le_zero + 1
+    }
+    if b0 + b1 == 0 {
+      u32be_zero = u32be_zero + 1
+    }
+    u32_units = u32_units + 1
     index = index + 4
   }
-  units > 0 && zero_high * 2 >= units
+  // A trailing pair, when the length is 2 mod 4.  A length of 3 mod 4 leaves
+  // a pair plus a byte; the pair is still counted here and then discarded by
+  // the even-length gate below, exactly as the per-encoding scan discarded it.
+  if index + 1 < length {
+    let b0 = bytes[index].to_int()
+    let b1 = bytes[index + 1].to_int()
+    if b1 == 0 && b0 != 0 {
+      u16le_ascii = u16le_ascii + 1
+    }
+    if b0 == 0 && b1 != 0 {
+      u16be_ascii = u16be_ascii + 1
+    }
+    u16_units = u16_units + 1
+  }
+  let even = length % 2 == 0
+  let quad = length % 4 == 0
+  {
+    utf16_le: length >= 4 &&
+      even &&
+      u16_units > 0 &&
+      u16le_ascii * 2 >= u16_units,
+    utf16_be: length >= 4 &&
+      even &&
+      u16_units > 0 &&
+      u16be_ascii * 2 >= u16_units,
+    utf32_le: length >= 8 &&
+      quad &&
+      u32_units > 0 &&
+      u32le_zero * 2 >= u32_units,
+    utf32_be: length >= 8 &&
+      quad &&
+      u32_units > 0 &&
+      u32be_zero * 2 >= u32_units,
+  }
 }
 
 ///|
@@ -138,6 +178,24 @@ fn has_multibyte_utf8_lead(bytes : Bytes) -> Bool {
   let mut index = 0
   while index < length {
     if bytes[index].to_int() >= 0xC2 {
+      return true
+    }
+    index = index + 1
+  }
+  false
+}
+
+///|
+/// True when any byte falls in windows-1252's C1 range.
+///
+/// That range is the only place the page differs from ISO-8859-1, so its
+/// absence means one decode can answer for both labels.
+fn has_c1_byte(bytes : Bytes) -> Bool {
+  let length = bytes.length()
+  let mut index = 0
+  while index < length {
+    let byte = bytes[index].to_int()
+    if byte >= 0x80 && byte <= 0x9F {
       return true
     }
     index = index + 1
@@ -169,25 +227,72 @@ pub fn detect(bytes : Bytes) -> Array[Detection] {
     })
     return results
   }
+  // One pass answers all four wide-encoding tests; see `wide_evidence`.
+  let wide = wide_evidence(bytes)
+  // Two labels can share one decode, and both cases are *proved* rather than
+  // assumed:
+  //
+  //   * windows-1252 and ISO-8859-1 differ only inside 0x80..0x9F, so a stream
+  //     with no byte in that range decodes identically under both.
+  //   * every mapping GBK defines is the same mapping in GB18030 (checked slot
+  //     by slot in `detect_wbtest.mbt`; GB18030 only adds 2149 slots GBK leaves
+  //     empty).  A GBK decode with zero errors therefore cannot have touched a
+  //     GB18030 four-byte form either — that form needs a digit after the lead
+  //     byte, and a digit is not a legal GBK trail, so it would have been an
+  //     error.
+  //
+  // Reusing the result is not a shortcut that changes the answer; it is the
+  // same answer, computed once.
+  let c1_present = has_c1_byte(bytes)
+  let mut gbk_decoded : Decoded? = None
+  let mut gbk_score = 0
+  let mut gbk_reusable = false
+  let mut cp1252_decoded : Decoded? = None
+  let mut cp1252_score = 0
   for charset in Charset::all() {
-    let decoded = decode(bytes, charset)
-    let mut score = score_decoded(decoded)
+    // Reusing the decode means the score is the same number too, so it is
+    // carried over with it rather than recomputed over the same text.
+    let carried : (Decoded?, Int) = if charset == Charset::Gb18030 &&
+      gbk_reusable {
+      (gbk_decoded, gbk_score)
+    } else if charset == Charset::Latin1 && !c1_present {
+      (cp1252_decoded, cp1252_score)
+    } else {
+      (None, 0)
+    }
+    let (decoded, base_score) = match carried {
+      (Some(previous), previous_score) => (previous, previous_score)
+      _ => {
+        let fresh = decode(bytes, charset)
+        (fresh, score_decoded(fresh))
+      }
+    }
+    if charset == Charset::Gbk {
+      gbk_decoded = Some(decoded)
+      gbk_score = base_score
+      gbk_reusable = decoded.errors == 0
+    }
+    if charset == Charset::Cp1252 {
+      cp1252_decoded = Some(decoded)
+      cp1252_score = base_score
+    }
+    let mut score = base_score
     if charset == Charset::Utf8 {
       if decoded.errors == 0 && has_multibyte_utf8_lead(bytes) {
         score = 100
       }
     }
-    if charset == Charset::Utf16Le || charset == Charset::Utf16Be {
-      let little_endian = charset == Charset::Utf16Le
-      if !utf16_evidence(bytes, little_endian) {
-        score = score / 2
-      }
+    if charset == Charset::Utf16Le && !wide.utf16_le {
+      score = score / 2
     }
-    if charset == Charset::Utf32Le || charset == Charset::Utf32Be {
-      let little_endian = charset == Charset::Utf32Le
-      if !utf32_evidence(bytes, little_endian) {
-        score = score / 2
-      }
+    if charset == Charset::Utf16Be && !wide.utf16_be {
+      score = score / 2
+    }
+    if charset == Charset::Utf32Le && !wide.utf32_le {
+      score = score / 2
+    }
+    if charset == Charset::Utf32Be && !wide.utf32_be {
+      score = score / 2
     }
     results.push({
       charset,
@@ -350,10 +455,8 @@ pub fn looks_binary(bytes : Bytes) -> Bool {
   if bom_charset(bytes) is Some(_) {
     return false
   }
-  if utf16_evidence(bytes, true) || utf16_evidence(bytes, false) {
-    return false
-  }
-  if utf32_evidence(bytes, true) || utf32_evidence(bytes, false) {
+  let wide = wide_evidence(bytes)
+  if wide.utf16_le || wide.utf16_be || wide.utf32_le || wide.utf32_be {
     return false
   }
   let limit = if bytes.length() < 8192 { bytes.length() } else { 8192 }

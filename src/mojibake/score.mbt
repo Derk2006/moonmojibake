@@ -85,6 +85,23 @@ fn is_neutral_char(codepoint : Int) -> Bool {
 /// neither, so a text that is mostly Hangul cannot be Chinese.  The inference
 /// only holds in this one direction, which is what makes it a usable
 /// tie-breaker between a code page and its byte-range-compatible neighbour.
+fn exclusive_from_counts(ideographs : Int, kana : Int, hangul : Int) -> Bool {
+  // Spaces and punctuation carry no script, so the share is measured against
+  // the characters that do.
+  let scripted = ideographs + hangul + kana
+  if scripted == 0 {
+    return false
+  }
+  if hangul * 10 >= scripted * 9 {
+    return true
+  }
+  kana * 100 >= scripted * 40
+}
+
+///|
+/// Same question, from a string.  `text_score` does not use this: it already
+/// counted the three scripts in its own pass, and asking again meant walking
+/// the whole text a second time for numbers it had.
 fn exclusive_script(text : String) -> Bool {
   let mut ideographs = 0
   let mut hangul = 0
@@ -99,16 +116,7 @@ fn exclusive_script(text : String) -> Bool {
       kana = kana + 1
     }
   }
-  // Spaces and punctuation carry no script, so the share is measured against
-  // the characters that do.
-  let scripted = ideographs + hangul + kana
-  if scripted == 0 {
-    return false
-  }
-  if hangul * 10 >= scripted * 9 {
-    return true
-  }
-  kana * 100 >= scripted * 40
+  exclusive_from_counts(ideographs, kana, hangul)
 }
 
 ///|
@@ -207,7 +215,10 @@ pub fn text_score(text : String, errors : Int) -> Int {
   // the same 35 points as a whole page of Chinese.
   let frequency_part = raw_frequency * scripted / chars
   let printable_part = 10 * (chars - noise) / chars
-  let exclusive_part = if clamped_errors == 0 && exclusive_script(text) {
+  // The three script counts above are exactly what `exclusive_script` would
+  // count, so reuse them instead of walking the text again.
+  let exclusive_part = if clamped_errors == 0 &&
+    exclusive_from_counts(ideographs, kana, hangul) {
     10
   } else {
     0
