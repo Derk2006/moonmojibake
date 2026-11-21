@@ -30,23 +30,34 @@ Existing packages such as `LL728/moon_encoding` and `f4ah6o/encoding_sjis` solve
 a different problem: they map a *known* label to a decoder. MoonMojibake is what
 you reach for when there is no label, or when the label is wrong.
 
-Detection does exist elsewhere in the ecosystem, but only in two shapes. Parsers
-sniff a BOM or a container-declared charset (`bobzhang/html_parser`,
+Detection does exist elsewhere in the ecosystem, in three shapes. Parsers sniff a
+BOM or a container-declared charset (`bobzhang/html_parser`,
 `bobzhang/mbtexcel`, `cp15695540483/moontag`) — there the answer is dictated by a
-specification, not inferred from the bytes. And `R00TK17/moonreader`, a
-twelve-format file reader, exports `detect_encoding` as a helper: one enum and
-no score, no Shift_JIS or EUC-KR, and its own docs note that GBK and Big5 cannot
-be told apart, so double-byte text defaults to GBK. MoonMojibake returns ranked
-candidates with confidence behind them, covers Japanese and Korean, and repairs
-text that was already decoded wrongly.
+specification, not inferred from the bytes. `R00TK17/moonreader`, a twelve-format
+file reader, exports `detect_encoding` as a helper: one enum and no score, no
+Shift_JIS or EUC-KR, and its own docs note that GBK and Big5 cannot be told
+apart, so double-byte text defaults to GBK. And `Fyx-9998/mbchardet`, published
+in October 2026, is a port of chardetng — the detector Firefox uses — with
+scores, BOM/HTML/XML sniffing, and 26 encodings.
+
+`mbchardet` is the closest neighbour, so the boundary deserves saying plainly.
+It ports a browser's model for guessing a web page's encoding. This project does
+forensics on bytes whose provenance is unknown: a table of candidate readings
+with scores and confidence, an explicit answer when two readings are genuinely
+indistinguishable, UTF-16/32 inferred without a BOM, and repair of text that was
+already decoded wrongly. `scores()` there is a list of scores, not a candidate
+table with confidence behind each row; it has no notion of a tie, and no
+mojibake repair. Neither project is derived from the other: our tables come from
+CPython's codecs, theirs from the WHATWG index files, and there is no chardetng
+code here.
 
 That difference is measured rather than asserted. On a 31-case labelled corpus
 (Simplified Chinese, Traditional Chinese, Japanese, Korean, Western, three
 lengths each, eleven code pages), [`scripts/accuracy_check.py`](scripts/accuracy_check.py)
 reports top-1 100% for MoonMojibake against 12.9% for "always answer GBK" and
-12.9% for "use the BOM, otherwise GBK" — the two behaviours available elsewhere
-in the ecosystem. Method, per-script breakdown and caveats are in
-[`docs/BENCHMARK.md`](docs/BENCHMARK.md).
+12.9% for "use the BOM, otherwise GBK" — the two fallbacks a reader-style
+detector degrades to when it has no scored model. Method, per-script breakdown
+and caveats are in [`docs/BENCHMARK.md`](docs/BENCHMARK.md).
 
 No code, table or test fixture in this repository was copied from those
 projects; the code page tables are generated from CPython by
