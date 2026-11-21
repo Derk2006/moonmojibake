@@ -56,8 +56,10 @@ That difference is measured rather than asserted. On a 31-case labelled corpus
 lengths each, eleven code pages), [`scripts/accuracy_check.py`](scripts/accuracy_check.py)
 reports top-1 100% for MoonMojibake against 12.9% for "always answer GBK" and
 12.9% for "use the BOM, otherwise GBK" — the two fallbacks a reader-style
-detector degrades to when it has no scored model. Method, per-script breakdown
-and caveats are in [`docs/BENCHMARK.md`](docs/BENCHMARK.md).
+detector degrades to when it has no scored model. Against `mbchardet` 0.1.0 on
+the same corpus the score is 31/31 to 27/31: its four misses are the three
+UTF-16 samples without a BOM and one short Japanese sample. Method, per-script
+breakdown and caveats are in [`docs/BENCHMARK.md`](docs/BENCHMARK.md).
 
 No code, table or test fixture in this repository was copied from those
 projects; the code page tables are generated from CPython by
