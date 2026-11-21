@@ -155,7 +155,7 @@ grep -ri "cose\|cbor\|9052" --include="*.mbt" --include="*.md" .   # 无命中
 |---|---|---|---|
 | 1 | 工具链 | 通过 | `moon 0.1.20261117` / `moonc v0.10.21+06da1ed44` |
 | 2 | `moon check --deny-warn` | 通过 | 0 warning（警告即失败） |
-| 3 | `moon test` | 通过 | **84 / 84** |
+| 3 | `moon test` | 通过 | **84 / 84**（default；js / wasm / wasm-gc 三个后端补跑亦各 84 / 84） |
 | 4 | 可运行示例 | 通过 | 四条 `grep` 断言全部命中（gbk、windows-1252→utf-8、假名平局、latin1 别名） |
 | 5 | `moon build --target js` | 通过 | CLI 产物生成，后续步骤依赖它 |
 | 6 | `moon build --target wasm` | 通过 | |
