@@ -175,8 +175,8 @@ grep -ri "cose\|cbor\|9052" --include="*.mbt" --include="*.md" .   # 无命中
 
 补充证据：
 
-- 远端 CI 最近一次为 `849eb75`，2026-11-21 全部通过
-  （<https://github.com/Derk2006/moonmojibake/actions>）。
+- 远端 CI 在 `main` 的最新提交上全部通过（2026-11-22；
+  <https://github.com/Derk2006/moonmojibake/actions>）。
 - 0.7.1 已发布至 mooncakes，空项目 `moon add` 安装与运行验证记在
   `docs/TEST_RECORD.md`「安装验证」一节。
 - 本节 16 步 **无失败项**；六条验收标准因此都有可执行的证据，而不是描述。
