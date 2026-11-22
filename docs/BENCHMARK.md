@@ -84,13 +84,17 @@ python scripts/accuracy_check.py      # 准确率
 
 前两条基线都是兜底行为，不是真正的检测器。2026-11 生态里出现了一个：`Fyx-9998/mbchardet` 0.1.0，chardetng（Firefox 的检测器）的 MoonBit 移植，26 种编码、带分数、带 WHATWG 的 BOM / HTML / XML 嗅探。同域里它是唯一需要认真对待的实现，所以同一套 31 条语料也跑了它一遍。
 
-复现方式：
+复现方式（两边跑同一批字节）：
 
 ```sh
+python scripts/accuracy_check.py --dump-corpus /tmp/mm-corpus
 git clone https://github.com/Fyx-9998/mbchardet && cd mbchardet
 moon build cmd/main
-moon run cmd/main -- case-*.bin        # 默认 sniff_text：BOM → charset → chardetng 猜测
+moon run cmd/main -- /tmp/mm-corpus/case-*.bin   # 默认 sniff_text：BOM → charset → chardetng 猜测
 ```
+
+`labels.tsv` 记录每个 `case-NNN.bin` 的分组、编码与可接受答案；31 个 `case-*.bin`
+与下表的 31 条一一对应（另外 3 个 `ascii-*.bin` 只作 ASCII 下限，不计分）。
 
 | | top-1 | n | 失手处 |
 |---|---:|---:|---|

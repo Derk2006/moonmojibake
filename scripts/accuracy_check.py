@@ -37,6 +37,11 @@ Usage
     python scripts/accuracy_check.py            # human-readable report
     python scripts/accuracy_check.py --json out.json
     python scripts/accuracy_check.py --min-top1 0.70   # CI gate
+    python scripts/accuracy_check.py --dump-corpus DIR # keep the case files
+
+`--dump-corpus` writes the scored cases as `case-NNN.bin` plus `labels.tsv`,
+so another detector can be run on exactly the same inputs (the mbchardet
+comparison in `docs/BENCHMARK.md` does this).
 
 The gate is deliberately a floor, not a target: it exists so a change that
 trades accuracy for speed cannot land silently.
@@ -162,6 +167,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", metavar="PATH", help="write raw results here")
     ap.add_argument(
+        "--dump-corpus",
+        metavar="DIR",
+        help="keep the encoded cases and a labels.tsv in DIR",
+    )
+    ap.add_argument(
         "--min-top1",
         type=float,
         default=None,
@@ -175,7 +185,15 @@ def main():
         )
 
     rows = []
-    tmpdir = tempfile.mkdtemp(prefix="moonmojibake-acc-")
+    keep = args.dump_corpus is not None
+    if keep:
+        tmpdir = os.path.abspath(args.dump_corpus)
+        os.makedirs(tmpdir, exist_ok=True)
+        labels = open(os.path.join(tmpdir, "labels.tsv"), "w", encoding="utf-8")
+        labels.write("file\tgroup\tcodec\taccept\n")
+    else:
+        tmpdir = tempfile.mkdtemp(prefix="moonmojibake-acc-")
+        labels = None
     try:
         index = 0
         for group, text, encodings in CORPUS:
@@ -188,6 +206,11 @@ def main():
                 path = os.path.join(tmpdir, "case-%03d.bin" % index)
                 with open(path, "wb") as fh:
                     fh.write(blob)
+                if labels is not None:
+                    labels.write(
+                        "case-%03d.bin\t%s\t%s\t%s\n"
+                        % (index, group, codec, ";".join(accept))
+                    )
 
                 result = run_detect(path)
                 if result is None:
@@ -228,7 +251,7 @@ def main():
         for group, text, codec in ASCII_CASES:
             index += 1
             blob = text.encode(codec)
-            path = os.path.join(tmpdir, "case-%03d.bin" % index)
+            path = os.path.join(tmpdir, "ascii-%03d.bin" % index)
             with open(path, "wb") as fh:
                 fh.write(blob)
             result = run_detect(path)
@@ -242,9 +265,18 @@ def main():
                 }
             )
     finally:
-        for name in os.listdir(tmpdir):
-            os.unlink(os.path.join(tmpdir, name))
-        os.rmdir(tmpdir)
+        if labels is not None:
+            labels.close()
+        if not keep:
+            for name in os.listdir(tmpdir):
+                os.unlink(os.path.join(tmpdir, name))
+            os.rmdir(tmpdir)
+
+    if keep:
+        print(
+            "corpus -> %s (%d scored cases + %d ASCII)"
+            % (tmpdir, len(rows), len(ascii_rows))
+        )
 
     scored = [r for r in rows if r["error"] is None]
     total = len(scored)
