@@ -96,6 +96,17 @@ cannot fake.
   version instead of pinning CI, so the next deprecation surfaces on the next
   local build rather than in review.
 
+## Claims that changed when checked
+
+Three claims in this repository were wrong when first written. Each row names
+the check that overturned it and the commit that records the change.
+
+| Claim | What checked it | What changed |
+|---|---|---|
+| Detection in the MoonBit ecosystem is only BOM/spec sniffing or a single-label helper (README, until 0.7.1) | A third `moon search` pass, then reading `Fyx-9998/mbchardet` | The claim was withdrawn. The README now describes three shapes of prior art and measures this project against `mbchardet` on the same 31-case corpus: 31/31 against 27/31. Commits `53b10cb`, `188f922`. |
+| BOM-less UTF-16 CJK is detected (0.6.2) | `scripts/accuracy_check.py`, one labelled case | The case decoded as Latin-1. Detection now requires UTF-16 to be the only reading that explains the bytes, with three tests pinning the rule. Commit `ebf10eb`. |
+| `gb18030` is supported (0.5.0 and earlier) | Encoding an emoji through the CLI | The label was an alias of GBK and refused the character. The four-byte form was implemented and checked over all 1 087 996 sequences. Commit `0a1f511`. |
+
 ## What is deliberately unfinished
 
 - **UTF-16 without a BOM** is under-weighted, not "solved". 0.6.3 narrowed the
@@ -108,6 +119,7 @@ cannot fake.
 - **Streaming decode** is not implemented. The current API takes `Bytes`; a
   chunked API is the next natural step and would need state carried across
   chunks for all thirteen code pages.
-- **`moon fmt`** is not in CI. On this codebase it rewrites `Int` to `Int32` and
-  `indent?` to `indent~`, changing the public API. Formatting is reviewed by
-  hand; the trade-off is documented in `docs/TEST_RECORD.md`.
+- **`moon fmt`** is not in CI. On this codebase it rewrites `Int` to `Int32`
+  and adds `///|` markers (source spellings only; the tracked `.mbti` already
+  says `Int32`), and it rewraps the generated table in `tables_gen.mbt`, which
+  CI already regenerates and byte-compares. Formatting is reviewed by hand.

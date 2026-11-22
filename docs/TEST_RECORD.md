@@ -219,6 +219,9 @@ import {
   narrower: when one script owns the decoded text, the decode is clean, and
   every 8-bit reading is 20 points worse, UTF-16 wins; when any of those fails,
   it does not. The grey zone in between stays documented as a limitation.
-- `moon fmt` is not part of CI: on this codebase it rewrites `Int` to `Int32`
-  and `indent?` to `indent~`, which changes the public API. Formatting is
-  reviewed by hand instead.
+- `moon fmt` is not enforced. On this codebase it rewrites `Int` to `Int32`
+  and adds `///|` before each top-level block; both are source spellings, since
+  the tracked `.mbti` already reads `Int32`. It also rewraps
+  `src/mojibake/tables_gen.mbt`, which is generated and compared byte for byte
+  in CI, so formatting that file would couple the data check to the
+  formatter's line breaking. Formatting is reviewed by hand instead.

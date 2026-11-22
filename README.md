@@ -3,7 +3,7 @@
 [![CI](https://github.com/Derk2006/moonmojibake/actions/workflows/ci.yml/badge.svg)](https://github.com/Derk2006/moonmojibake/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![MoonBit](https://img.shields.io/badge/MoonBit-zero%20FFI-purple.svg)](https://www.moonbitlang.com/)
-[![mooncakes](https://img.shields.io/badge/mooncakes-Derk2006%2Fmoonmojibake%400.6.4-blue)](https://mooncakes.io/docs/#/Derk2006/moonmojibake)
+[![mooncakes](https://img.shields.io/badge/mooncakes-Derk2006%2Fmoonmojibake%400.7.1-blue)](https://mooncakes.io/docs/#/Derk2006/moonmojibake)
 
 > Reviewing this project? [`ACCEPTANCE.md`](ACCEPTANCE.md) maps every
 > acceptance criterion to a command you can run, and
@@ -260,7 +260,7 @@ the top level of the `scan` object.
 ### Install
 
 ```sh
-moon add Derk2006/moonmojibake@0.6.4
+moon add Derk2006/moonmojibake@0.7.1
 ```
 
 That writes the module dependency into `moon.mod`. The alias belongs to the
@@ -457,7 +457,7 @@ at the wrong character" instead of "does the sample happen to pass".
 - [`docs/FORMAT_NOTES.md`](docs/FORMAT_NOTES.md) — table layout, scoring weights, design reasoning
 - [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) — development history, AI usage, trade-offs, mistakes found by testing
 - [`docs/BENCHMARK.md`](docs/BENCHMARK.md) — throughput and detection accuracy, with method and caveats
-- [`docs/TEST_RECORD.md`](docs/TEST_RECORD.md) — toolchain, commands and observed results for 0.6.4
+- [`docs/TEST_RECORD.md`](docs/TEST_RECORD.md) — toolchain, commands and observed results for 0.7.1
 - [`examples/detect_and_repair`](examples/detect_and_repair) — `moon run examples/detect_and_repair`
 - [`CHANGELOG.md`](CHANGELOG.md) — what changed in each release and why
 
