@@ -187,7 +187,37 @@ guess. CI runs the same command as a gate.
 
 `mooncakes.io` reports `Derk2006/moonmojibake` at `0.7.1`, not yanked. In an
 empty project the published package is exercised from the outside, which is the
-part a release test can get wrong:
+part a release test can get wrong.
+
+The consuming package's `moon.pkg` needs the package path, not the module root
+(`moon new` puts it at the module root; a project with `cmd/main` needs it
+there instead):
+
+```
+import {
+  "Derk2006/moonmojibake/src/mojibake" @mojibake,
+}
+```
+
+Two blackbox tests, in the same directory as that `moon.pkg`:
+
+```moonbit
+///|
+test "detect from a consuming package" {
+  let rows = @mojibake.detect(b"\xd6\xd0\xce\xc4")
+  assert_eq(rows[0].charset().name(), "gbk")
+  assert_eq(rows[0].text(), "中文")
+  assert_eq(rows[0].equivalent().length(), 0)
+}
+
+///|
+test "utf32le bom wins over the utf16 reading" {
+  let rows = @mojibake.detect(b"\xff\xfe\x00\x00\x2d\x4e\x00\x00\x87\x65\x00\x00")
+  assert_eq(rows.length(), 1)
+  assert_eq(rows[0].charset().name(), "utf-32le")
+  assert_eq(rows[0].text(), "中文")
+}
+```
 
 ```
 $ moon new verify071 --user verify
@@ -198,18 +228,14 @@ Total tests: 2, passed: 2, failed: 0.
 
 The two assertions check the parts this release could have broken from the
 outside: `detect` on GBK bytes still returns `gbk` with the right text and an
-empty `equivalent()`, and the UTF-32LE padding test still wins for four-byte
-code units — that second one goes through the merged `wide_evidence` scan, so
-a package whose `.mbti` or behaviour drifted would fail here rather than in
-review.
+empty `equivalent()`, and a UTF-32LE BOM still wins over the UTF-16LE reading
+that the same four bytes start with — that second one goes through the merged
+`wide_evidence` scan, so a package whose `.mbti` or behaviour drifted would
+fail here rather than in review.
 
-The consuming `src/moon.pkg` needs the package path, not the module root:
-
-```
-import {
-  "Derk2006/moonmojibake/src/mojibake" @mojibake,
-}
-```
+Re-run on 2026-11-23 with `moon 0.1.20261117`: same result, no warnings. The
+`moon new` template's own tests are commented out, so the output above is the
+two tests listed, not template leftovers.
 
 ## What is *not* asserted
 

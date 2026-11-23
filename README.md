@@ -264,8 +264,9 @@ moon add Derk2006/moonmojibake@0.7.1
 ```
 
 That writes the module dependency into `moon.mod`. The alias belongs to the
-package, though, so one line goes in *your* `src/moon.pkg`, next to the code
-that uses it:
+package, though, so one line goes in the `moon.pkg` of the package that uses it
+— the module root in a project made by `moon new`, `cmd/main` in the default
+layout:
 
 ```
 import {
@@ -285,6 +286,10 @@ fn main {
 
 The first `moon add` in a fresh checkout also pulls the registry index, which
 is large; later runs read it from `~/.moon/registry`.
+
+`fn main` only compiles in a package declared executable (`pkgtype(kind:
+"executable")`, which `moon new` puts in `cmd/main`); the same calls work
+anywhere as a library.
 
 ### As a library
 
