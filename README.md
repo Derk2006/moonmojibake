@@ -456,6 +456,28 @@ at the wrong character" instead of "does the sample happen to pass".
 - Healing is bounded by information loss. Once a byte became U+FFFD, the
   original is gone.
 
+## Upstream
+
+Two bugs found while building this library were fixed in
+[`moonbitlang/core`](https://github.com/moonbitlang/core). Both started as one
+proposal, [PR #4896](https://github.com/moonbitlang/core/pull/4896); the
+maintainer split it by package and merged the parts separately.
+
+- [`PR #4948`](https://github.com/moonbitlang/core/pull/4948) —
+  `base64.decode_lossy` stopped at the first whitespace, so line-wrapped Base64
+  decoded to a prefix and reported nothing wrong. It now skips spaces, tabs, CR
+  and LF by default, and `ignore_whitespace=false` restores the old
+  stop-at-whitespace behaviour. Merged as `58fe937b`.
+- [`PR #4950`](https://github.com/moonbitlang/core/pull/4950) — `percent` could
+  only go text to text, so a binary or non-UTF-8 payload could not survive a
+  round trip. `encode_bytes` and `decode_to_bytes` were added. Merged as
+  `c56abfdb`, which lists this project as co-author.
+
+A third part, a whitespace-tolerant `hex.decode_lossy`, was declined
+([`#4949`](https://github.com/moonbitlang/core/pull/4949)): skipping every
+non-hex character turns `"0x48"` into the single byte `0x04`, and core did not
+want to commit to that reading. It is not in this library either.
+
 ## Documentation
 
 - [`ACCEPTANCE.md`](ACCEPTANCE.md) — acceptance checklist, five-minute reproduction, wrong-answer audit
